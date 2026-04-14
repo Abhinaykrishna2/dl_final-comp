@@ -1,2 +1,6 @@
 temp.txt
 .DS_Store
+.venv/
+__pycache__/
+data/
+.hf-cache-active_matter/
