@@ -5,12 +5,17 @@ import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterator
+from typing import Any, Iterator
 
 import torch
 import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.data import DataLoader, DistributedSampler, Sampler
+
+try:
+    import wandb
+except Exception:  # pragma: no cover
+    wandb = None
 
 from .data import ActiveMatterWindowDataset
 from .losses import vicreg_loss
@@ -42,6 +47,13 @@ class DistState:
     @property
     def is_main_process(self) -> bool:
         return self.rank == 0
+
+
+@dataclass
+class WandbState:
+    enabled: bool
+    run: Any | None = None
+    run_id: str | None = None
 
 
 class StridedShardSampler(Sampler[int]):
@@ -105,6 +117,15 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Distributed backend. Default is nccl on CUDA and gloo otherwise.",
     )
+    parser.add_argument(
+        "--wandb-mode",
+        choices=["online", "offline", "disabled"],
+        default="online",
+        help="Weights & Biases logging mode.",
+    )
+    parser.add_argument("--wandb-entity", type=str, default="abhinaykrishna60-new-york-university")
+    parser.add_argument("--wandb-project", type=str, default="dl_final-comp")
+    parser.add_argument("--wandb-run-name", type=str, default=None)
     return parser.parse_args()
 
 
@@ -236,8 +257,41 @@ def _reduce_metric_summaries(
     }
 
 
+def _init_wandb(
+    *,
+    args: argparse.Namespace,
+    dist_state: DistState,
+    config_payload: dict[str, Any],
+    out_dir: Path,
+    resume_payload: dict[str, Any] | None,
+) -> WandbState:
+    if args.wandb_mode == "disabled" or not dist_state.is_main_process:
+        return WandbState(enabled=False)
+    if wandb is None:
+        raise RuntimeError("wandb is not installed, but wandb logging is enabled")
+
+    run_id = None
+    if resume_payload is not None:
+        run_id = resume_payload.get("wandb_run_id")
+
+    run = wandb.init(
+        entity=args.wandb_entity,
+        project=args.wandb_project,
+        name=args.wandb_run_name,
+        dir=str(out_dir),
+        config=config_payload,
+        id=run_id,
+        resume="allow" if run_id else None,
+        mode=args.wandb_mode,
+    )
+    if run_id is None:
+        run_id = run.id
+    return WandbState(enabled=True, run=run, run_id=run_id)
+
+
 def main() -> None:
     dist_state: DistState | None = None
+    wandb_state = WandbState(enabled=False)
     try:
         args = parse_args()
         dims = parse_int_list(args.dims)
@@ -312,6 +366,9 @@ def main() -> None:
         config_payload["distributed"] = dist_state.enabled
         config_payload["world_size"] = dist_state.world_size
         config_payload["backend"] = dist_state.backend
+        config_payload["out_dir"] = str(out_dir)
+        config_payload["train_samples"] = len(train_dataset)
+        config_payload["valid_samples"] = len(valid_dataset)
         if dist_state.is_main_process:
             save_json(out_dir / "train_config.json", config_payload)
 
@@ -323,25 +380,26 @@ def main() -> None:
         best_val = float("inf")
         history: list[dict[str, float | int]] = []
         start_epoch = 1
+        resume_payload: dict[str, Any] | None = None
 
         resume_path = _resolve_resume_path(out_dir, args.resume)
         if resume_path is not None:
             if not resume_path.exists():
                 raise FileNotFoundError(f"resume checkpoint not found: {resume_path}")
-            payload = torch.load(resume_path, map_location="cpu")
-            if "encoder" not in payload or "predictor" not in payload:
+            resume_payload = torch.load(resume_path, map_location="cpu")
+            if "encoder" not in resume_payload or "predictor" not in resume_payload:
                 raise ValueError(f"resume checkpoint must be a full training checkpoint: {resume_path}")
-            model.encoder.load_state_dict(payload["encoder"])
-            model.predictor.load_state_dict(payload["predictor"])
-            if "optimizer" in payload:
-                optimizer.load_state_dict(payload["optimizer"])
-            if "scheduler" in payload:
-                scheduler.load_state_dict(payload["scheduler"])
-            if "scaler" in payload:
-                scaler.load_state_dict(payload["scaler"])
-            best_val = float(payload.get("best_valid_loss", best_val))
-            history = list(payload.get("history", []))
-            start_epoch = int(payload.get("epoch", 0)) + 1
+            model.encoder.load_state_dict(resume_payload["encoder"])
+            model.predictor.load_state_dict(resume_payload["predictor"])
+            if "optimizer" in resume_payload:
+                optimizer.load_state_dict(resume_payload["optimizer"])
+            if "scheduler" in resume_payload:
+                scheduler.load_state_dict(resume_payload["scheduler"])
+            if "scaler" in resume_payload:
+                scaler.load_state_dict(resume_payload["scaler"])
+            best_val = float(resume_payload.get("best_valid_loss", best_val))
+            history = list(resume_payload.get("history", []))
+            start_epoch = int(resume_payload.get("epoch", 0)) + 1
             if dist_state.is_main_process:
                 print(
                     {
@@ -353,6 +411,14 @@ def main() -> None:
                     },
                     flush=True,
                 )
+
+        wandb_state = _init_wandb(
+            args=args,
+            dist_state=dist_state,
+            config_payload=config_payload,
+            out_dir=out_dir,
+            resume_payload=resume_payload,
+        )
 
         if start_epoch > args.epochs:
             if dist_state.is_main_process:
@@ -486,6 +552,8 @@ def main() -> None:
             history.append(epoch_record)
             if dist_state.is_main_process:
                 print(epoch_record, flush=True)
+                if wandb_state.enabled and wandb_state.run is not None:
+                    wandb_state.run.log(epoch_record, step=epoch)
 
             improved = valid_summary["loss"] < best_val
             if improved:
@@ -503,6 +571,7 @@ def main() -> None:
                     "scaler": scaler.state_dict(),
                     "best_valid_loss": best_val,
                     "history": history,
+                    "wandb_run_id": wandb_state.run_id,
                 }
                 atomic_torch_save(out_dir / "last.pt", checkpoint)
                 atomic_torch_save(
@@ -530,10 +599,15 @@ def main() -> None:
                     )
 
                 save_json(out_dir / "history.json", {"epochs": history, "best_valid_loss": best_val})
+                if wandb_state.enabled and wandb_state.run is not None:
+                    wandb_state.run.summary["best_valid_loss"] = best_val
+                    wandb_state.run.summary["last_epoch"] = epoch
 
             if dist_state.enabled:
                 dist.barrier()
     finally:
+        if wandb_state.enabled and wandb_state.run is not None:
+            wandb_state.run.finish()
         if dist.is_available() and dist.is_initialized():
             dist.destroy_process_group()
 

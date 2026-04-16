@@ -4,3 +4,4 @@ temp.txt
 __pycache__/
 data/
 .hf-cache-active_matter/
+wandb/
