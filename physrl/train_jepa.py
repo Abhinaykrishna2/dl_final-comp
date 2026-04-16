@@ -104,6 +104,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-valid-samples", type=int, default=None)
     parser.add_argument("--amp", action="store_true")
     parser.add_argument(
+        "--init-checkpoint",
+        type=Path,
+        default=None,
+        help="Warm-start from a previous checkpoint without resuming optimizer/scheduler/history.",
+    )
+    parser.add_argument(
         "--resume",
         nargs="?",
         const="auto",
@@ -154,6 +160,12 @@ def _resolve_resume_path(out_dir: Path, resume: str | None) -> Path | None:
     if resume == "auto":
         return out_dir / "last.pt"
     return Path(resume).expanduser().resolve()
+
+
+def _resolve_init_path(init_checkpoint: Path | None) -> Path | None:
+    if init_checkpoint is None:
+        return None
+    return init_checkpoint.expanduser().resolve()
 
 
 def _slurm_env_fallback() -> None:
@@ -254,6 +266,36 @@ def _reduce_metric_summaries(
     return {
         key: float(payload[idx + 1].item() / total_count)
         for idx, key in enumerate(METRIC_KEYS)
+    }
+
+
+def _load_init_checkpoint(model: JepaModel, checkpoint_path: Path) -> dict[str, Any]:
+    payload = torch.load(checkpoint_path, map_location="cpu")
+    loaded_encoder = False
+    loaded_predictor = False
+
+    if "encoder" in payload:
+        model.encoder.load_state_dict(payload["encoder"])
+        loaded_encoder = True
+    elif "state_dict" in payload:
+        model.encoder.load_state_dict(payload["state_dict"])
+        loaded_encoder = True
+
+    if "predictor" in payload:
+        model.predictor.load_state_dict(payload["predictor"])
+        loaded_predictor = True
+
+    if not loaded_encoder:
+        raise ValueError(
+            f"init checkpoint must contain 'encoder' or 'state_dict': {checkpoint_path}"
+        )
+
+    return {
+        "path": str(checkpoint_path),
+        "epoch": payload.get("epoch"),
+        "loaded_encoder": loaded_encoder,
+        "loaded_predictor": loaded_predictor,
+        "source_best_valid_loss": payload.get("best_valid_loss"),
     }
 
 
@@ -369,8 +411,6 @@ def main() -> None:
         config_payload["out_dir"] = str(out_dir)
         config_payload["train_samples"] = len(train_dataset)
         config_payload["valid_samples"] = len(valid_dataset)
-        if dist_state.is_main_process:
-            save_json(out_dir / "train_config.json", config_payload)
 
         optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
         total_steps = max(1, args.epochs * len(train_loader))
@@ -381,6 +421,7 @@ def main() -> None:
         history: list[dict[str, float | int]] = []
         start_epoch = 1
         resume_payload: dict[str, Any] | None = None
+        init_summary: dict[str, Any] | None = None
 
         resume_path = _resolve_resume_path(out_dir, args.resume)
         if resume_path is not None:
@@ -411,14 +452,29 @@ def main() -> None:
                     },
                     flush=True,
                 )
+        else:
+            init_path = _resolve_init_path(args.init_checkpoint)
+            if init_path is not None:
+                if not init_path.exists():
+                    raise FileNotFoundError(f"init checkpoint not found: {init_path}")
+                init_summary = _load_init_checkpoint(model, init_path)
+                config_payload["init_checkpoint"] = init_summary["path"]
+                config_payload["init_checkpoint_epoch"] = init_summary["epoch"]
+                config_payload["init_loaded_predictor"] = init_summary["loaded_predictor"]
+                config_payload["init_source_best_valid_loss"] = init_summary["source_best_valid_loss"]
+                if dist_state.is_main_process:
+                    print(
+                        {
+                            "status": "initialized",
+                            "init_checkpoint": init_summary["path"],
+                            "checkpoint_epoch": init_summary["epoch"],
+                            "loaded_predictor": init_summary["loaded_predictor"],
+                        },
+                        flush=True,
+                    )
 
-        wandb_state = _init_wandb(
-            args=args,
-            dist_state=dist_state,
-            config_payload=config_payload,
-            out_dir=out_dir,
-            resume_payload=resume_payload,
-        )
+        if dist_state.is_main_process:
+            save_json(out_dir / "train_config.json", config_payload)
 
         if start_epoch > args.epochs:
             if dist_state.is_main_process:
@@ -431,6 +487,14 @@ def main() -> None:
                     flush=True,
                 )
             return
+
+        wandb_state = _init_wandb(
+            args=args,
+            dist_state=dist_state,
+            config_payload=config_payload,
+            out_dir=out_dir,
+            resume_payload=resume_payload,
+        )
 
         if dist_state.enabled:
             if dist_state.device.type == "cuda":
@@ -477,13 +541,15 @@ def main() -> None:
                     )
                     loss = loss_dict["loss"]
 
+                prev_scale = scaler.get_scale() if scaler.is_enabled() else None
                 scaler.scale(loss).backward()
                 if args.grad_clip > 0:
                     scaler.unscale_(optimizer)
                     torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_clip)
                 scaler.step(optimizer)
                 scaler.update()
-                scheduler.step()
+                if not scaler.is_enabled() or scaler.get_scale() >= (prev_scale or 0.0):
+                    scheduler.step()
 
                 batch_size = int(context.shape[0])
                 train_sample_count += batch_size
