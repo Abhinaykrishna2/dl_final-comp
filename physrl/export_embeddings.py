@@ -26,6 +26,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--num-workers", type=int, default=4)
     parser.add_argument("--device", type=str, default="auto")
+    parser.add_argument("--amp", action="store_true", help="Use mixed-precision inference on CUDA during export.")
+    parser.add_argument(
+        "--amp-dtype",
+        choices=["float16", "bfloat16"],
+        default="float16",
+        help="Autocast dtype used when --amp is enabled.",
+    )
     parser.add_argument("--context-frames", type=int, default=None)
     parser.add_argument("--stride", type=int, default=1)
     parser.add_argument("--resolution", type=int, default=None)
@@ -67,6 +74,7 @@ def main() -> None:
     device = choose_device(args.device)
     out_dir = ensure_dir(args.out_dir)
     encoder, train_config = _load_encoder(args.checkpoint, device)
+    amp_dtype = torch.float16 if args.amp_dtype == "float16" else torch.bfloat16
     context_frames = int(train_config.get("context_frames", 16)) if args.context_frames is None else args.context_frames
     resolution = int(train_config.get("resolution", 224)) if args.resolution is None else args.resolution
 
@@ -95,7 +103,12 @@ def main() -> None:
         with torch.no_grad():
             for batch in loader:
                 context = batch["context"].to(device, non_blocking=True)
-                features = encoder(context)
+                with torch.autocast(
+                    device_type=device.type,
+                    dtype=amp_dtype,
+                    enabled=args.amp and device.type == "cuda",
+                ):
+                    features = encoder(context)
                 pooled = pool_features(features, args.pool)
                 all_embeddings.append(pooled.cpu().numpy().astype(np.float32))
                 all_labels.append(batch["label"].numpy().astype(np.float32))
