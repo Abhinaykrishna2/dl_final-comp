@@ -93,6 +93,10 @@ def _predict_tensor(model: torch.nn.Module, features: torch.Tensor) -> torch.Ten
         return model(features)
 
 
+def _build_linear_model(in_dim: int, out_dim: int, device: torch.device) -> torch.nn.Linear:
+    return torch.nn.Linear(int(in_dim), int(out_dim)).to(device)
+
+
 def _evaluate_tensor(
     model: torch.nn.Module,
     x: torch.Tensor,
@@ -119,9 +123,6 @@ def _train_one(
     valid_x: torch.Tensor,
     valid_y: np.ndarray,
     valid_y_n: np.ndarray,
-    test_x: torch.Tensor,
-    test_y: np.ndarray,
-    test_y_n: np.ndarray,
     feature_stats: dict,
     label_norm: LabelNormalizer,
     device: torch.device,
@@ -138,7 +139,7 @@ def _train_one(
     if device.type == "cuda":
         torch.cuda.manual_seed_all(seed)
 
-    model = torch.nn.Linear(int(train_x.shape[1]), int(train_y_n.shape[1])).to(device)
+    model = _build_linear_model(int(train_x.shape[1]), int(train_y_n.shape[1]), device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max(epochs, 1), eta_min=min_lr)
     loss_fn = torch.nn.MSELoss()
@@ -197,8 +198,8 @@ def _train_one(
         }
         history.append(epoch_record)
 
-        if valid_report["mean_mse"] < best_valid:
-            best_valid = valid_report["mean_mse"]
+        if valid_report_normalized["mean_mse"] < best_valid:
+            best_valid = valid_report_normalized["mean_mse"]
             best_state = {key: value.detach().cpu() for key, value in model.state_dict().items()}
             epochs_without_improvement = 0
         else:
@@ -218,25 +219,14 @@ def _train_one(
         valid_y_n,
         label_norm,
     )
-    test_report, test_report_normalized, test_pred, test_pred_n = _evaluate_tensor(
-        model,
-        test_x,
-        test_y,
-        test_y_n,
-        label_norm,
-    )
     return {
         "state_dict": best_state,
         "history": history,
-        "best_valid_mean_mse": best_valid,
+        "best_valid_mean_mse_normalized": best_valid,
         "valid": valid_report,
         "valid_normalized": valid_report_normalized,
-        "test": test_report,
-        "test_normalized": test_report_normalized,
         "valid_pred": valid_pred,
         "valid_pred_normalized": valid_pred_n,
-        "test_pred": test_pred,
-        "test_pred_normalized": test_pred_n,
         "feature_stats": feature_stats,
         "label_stats": label_norm.to_dict(),
     }
@@ -290,9 +280,6 @@ def main() -> None:
                 valid_x=valid_x_t,
                 valid_y=valid_y,
                 valid_y_n=valid_y_n,
-                test_x=test_x_t,
-                test_y=test_y,
-                test_y_n=test_y_n,
                 feature_stats=feature_stats,
                 label_norm=label_norm,
                 device=device,
@@ -314,14 +301,15 @@ def main() -> None:
                 "cache_on_device": cache_on_device,
                 "valid": result["valid"],
                 "valid_normalized": result["valid_normalized"],
-                "test": result["test"],
-                "test_normalized": result["test_normalized"],
                 "epochs_trained": len(result["history"]),
             }
             search_results.append(trial_record)
             print(trial_record, flush=True)
 
-            if best_result is None or result["valid"]["mean_mse"] < best_result["valid"]["mean_mse"]:
+            if (
+                best_result is None
+                or result["valid_normalized"]["mean_mse"] < best_result["valid_normalized"]["mean_mse"]
+            ):
                 best_result = {
                     "trial_index": trial_index,
                     "feature_norm": feature_norm,
@@ -336,6 +324,37 @@ def main() -> None:
     if best_result is None:
         raise RuntimeError("linear-probe sweep produced no result")
 
+    best_train_x, best_valid_x, best_test_x, best_feature_stats = normalize_feature_splits(
+        train_x_raw,
+        valid_x_raw,
+        test_x_raw,
+        str(best_result["feature_norm"]),
+    )
+    best_cache_on_device = _should_cache_on_device(
+        cache_on_device=args.cache_on_device,
+        device=device,
+        arrays=[best_train_x, best_valid_x, best_test_x, train_y_n],
+    )
+    if best_cache_on_device:
+        best_test_x_t = torch.from_numpy(best_test_x).to(device)
+    else:
+        best_test_x_t = torch.from_numpy(best_test_x)
+
+    best_model = _build_linear_model(best_train_x.shape[1], train_y_n.shape[1], device)
+    best_model.load_state_dict(best_result["state_dict"])
+    test_report, test_report_normalized, test_pred, test_pred_n = _evaluate_tensor(
+        best_model,
+        best_test_x_t,
+        test_y,
+        test_y_n,
+        label_norm,
+    )
+    best_result["test"] = test_report
+    best_result["test_normalized"] = test_report_normalized
+    best_result["test_pred"] = test_pred
+    best_result["test_pred_normalized"] = test_pred_n
+    best_result["feature_stats"] = best_feature_stats
+
     best_slug = (
         f"norm-{best_result['feature_norm']}"
         f"_lr-{_slugify_float(float(best_result['lr']))}"
@@ -349,7 +368,9 @@ def main() -> None:
             "state_dict": best_result["state_dict"],
             "feature_stats": best_result["feature_stats"],
             "label_stats": best_result["label_stats"],
-            "best_valid_mean_mse": best_result["best_valid_mean_mse"],
+            "best_valid_mean_mse": best_result["valid"]["mean_mse"],
+            "best_valid_mean_mse_normalized": best_result["best_valid_mean_mse_normalized"],
+            "selection_metric": "valid_normalized.mean_mse",
             "feature_norm": best_result["feature_norm"],
             "lr": best_result["lr"],
             "weight_decay": best_result["weight_decay"],
@@ -383,7 +404,9 @@ def main() -> None:
                 "lr": best_result["lr"],
                 "weight_decay": best_result["weight_decay"],
                 "batch_size": best_result["batch_size"],
-                "best_valid_mean_mse": best_result["best_valid_mean_mse"],
+                "best_valid_mean_mse": best_result["valid"]["mean_mse"],
+                "best_valid_mean_mse_normalized": best_result["best_valid_mean_mse_normalized"],
+                "selection_metric": "valid_normalized.mean_mse",
                 "valid": best_result["valid"],
                 "valid_normalized": best_result["valid_normalized"],
                 "test": best_result["test"],

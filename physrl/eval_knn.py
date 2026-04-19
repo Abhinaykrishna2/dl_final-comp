@@ -121,6 +121,79 @@ def _knn_predict_torch(
     return torch.cat(predictions, dim=0)
 
 
+def _predict_valid_with_backend(
+    *,
+    backend: str,
+    train_x: np.ndarray,
+    valid_x: np.ndarray,
+    train_y_n: np.ndarray,
+    device: torch.device,
+    weights: str,
+    metric: str,
+    n_neighbors: int,
+    query_batch_size: int,
+) -> np.ndarray:
+    if backend == "torch":
+        train_x_t = torch.from_numpy(train_x).to(device)
+        train_y_n_t = torch.from_numpy(train_y_n).to(device)
+        valid_x_t = torch.from_numpy(valid_x).to(device)
+        return _knn_predict_torch(
+            train_x=train_x_t,
+            train_y_n=train_y_n_t,
+            query_x=valid_x_t,
+            n_neighbors=n_neighbors,
+            weights=weights,
+            metric=metric,
+            query_batch_size=query_batch_size,
+        ).cpu().numpy().astype(np.float32)
+
+    valid_pred_n = _knn_predict_sklearn(
+        train_x=train_x,
+        train_y_n=train_y_n,
+        query_x=valid_x,
+        n_neighbors=n_neighbors,
+        weights=weights,
+        metric=metric,
+    )
+    return valid_pred_n
+
+
+def _predict_test_with_backend(
+    *,
+    backend: str,
+    train_x: np.ndarray,
+    test_x: np.ndarray,
+    train_y_n: np.ndarray,
+    device: torch.device,
+    weights: str,
+    metric: str,
+    n_neighbors: int,
+    query_batch_size: int,
+) -> np.ndarray:
+    if backend == "torch":
+        train_x_t = torch.from_numpy(train_x).to(device)
+        train_y_n_t = torch.from_numpy(train_y_n).to(device)
+        test_x_t = torch.from_numpy(test_x).to(device)
+        return _knn_predict_torch(
+            train_x=train_x_t,
+            train_y_n=train_y_n_t,
+            query_x=test_x_t,
+            n_neighbors=n_neighbors,
+            weights=weights,
+            metric=metric,
+            query_batch_size=query_batch_size,
+        ).cpu().numpy().astype(np.float32)
+
+    return _knn_predict_sklearn(
+        train_x=train_x,
+        train_y_n=train_y_n,
+        query_x=test_x,
+        n_neighbors=n_neighbors,
+        weights=weights,
+        metric=metric,
+    )
+
+
 def main() -> None:
     args = parse_args()
     out_dir = ensure_dir(args.out_dir)
@@ -144,37 +217,22 @@ def main() -> None:
             train_x_raw, valid_x_raw, test_x_raw, feature_norm
         )
 
-        if backend == "torch":
-            train_x_t = torch.from_numpy(train_x).to(device)
-            valid_x_t = torch.from_numpy(valid_x).to(device)
-            test_x_t = torch.from_numpy(test_x).to(device)
-            train_y_n_t = torch.from_numpy(train_y_n).to(device)
-
         for n_neighbors in args.neighbors:
             for weights in args.weights:
                 for metric in args.metric:
-                    if backend == "torch":
-                        valid_pred_n_t = _knn_predict_torch(
-                            train_x=train_x_t,
-                            train_y_n=train_y_n_t,
-                            query_x=valid_x_t,
-                            n_neighbors=n_neighbors,
-                            weights=weights,
-                            metric=metric,
-                            query_batch_size=args.query_batch_size,
-                        )
-                        valid_pred_n = valid_pred_n_t.cpu().numpy().astype(np.float32)
-                    else:
-                        valid_pred_n = _knn_predict_sklearn(
-                            train_x=train_x,
-                            train_y_n=train_y_n,
-                            query_x=valid_x,
-                            n_neighbors=n_neighbors,
-                            weights=weights,
-                            metric=metric,
-                        )
-
+                    valid_pred_n = _predict_valid_with_backend(
+                        backend=backend,
+                        train_x=train_x,
+                        valid_x=valid_x,
+                        train_y_n=train_y_n,
+                        device=device,
+                        weights=weights,
+                        metric=metric,
+                        n_neighbors=n_neighbors,
+                        query_batch_size=args.query_batch_size,
+                    )
                     valid_pred = label_norm.inverse_transform(valid_pred_n)
+                    valid_report_normalized = mse_report(valid_pred_n, valid_y_n)
                     valid_report = mse_report(valid_pred, valid_y)
                     result = {
                         "feature_norm": feature_norm,
@@ -183,34 +241,15 @@ def main() -> None:
                         "metric": metric,
                         "backend": backend,
                         "valid": valid_report,
-                        "valid_normalized": mse_report(valid_pred_n, valid_y_n),
+                        "valid_normalized": valid_report_normalized,
                     }
                     search_results.append(result)
                     print(result, flush=True)
 
-                    if best is None or valid_report["mean_mse"] < best["valid"]["mean_mse"]:
-                        if backend == "torch":
-                            test_pred_n_t = _knn_predict_torch(
-                                train_x=train_x_t,
-                                train_y_n=train_y_n_t,
-                                query_x=test_x_t,
-                                n_neighbors=n_neighbors,
-                                weights=weights,
-                                metric=metric,
-                                query_batch_size=args.query_batch_size,
-                            )
-                            test_pred_n = test_pred_n_t.cpu().numpy().astype(np.float32)
-                        else:
-                            test_pred_n = _knn_predict_sklearn(
-                                train_x=train_x,
-                                train_y_n=train_y_n,
-                                query_x=test_x,
-                                n_neighbors=n_neighbors,
-                                weights=weights,
-                                metric=metric,
-                            )
-
-                        test_pred = label_norm.inverse_transform(test_pred_n)
+                    if (
+                        best is None
+                        or valid_report_normalized["mean_mse"] < best["valid_normalized"]["mean_mse"]
+                    ):
                         best = {
                             "feature_norm": feature_norm,
                             "n_neighbors": int(min(n_neighbors, train_x.shape[0])),
@@ -218,22 +257,41 @@ def main() -> None:
                             "metric": metric,
                             "backend": backend,
                             "valid": valid_report,
-                            "valid_normalized": mse_report(valid_pred_n, valid_y_n),
-                            "test": mse_report(test_pred, test_y),
-                            "test_normalized": mse_report(test_pred_n, test_y_n),
+                            "valid_normalized": valid_report_normalized,
                             "feature_stats": feature_stats,
-                            "test_pred": test_pred,
-                            "test_pred_normalized": test_pred_n,
                         }
 
     if best is None:
         raise RuntimeError("kNN search produced no result")
 
+    best_train_x, best_valid_x, best_test_x, best_feature_stats = normalize_feature_splits(
+        train_x_raw,
+        valid_x_raw,
+        test_x_raw,
+        str(best["feature_norm"]),
+    )
+    best_test_pred_n = _predict_test_with_backend(
+        backend=str(best["backend"]),
+        train_x=best_train_x,
+        test_x=best_test_x,
+        train_y_n=train_y_n,
+        device=device,
+        weights=str(best["weights"]),
+        metric=str(best["metric"]),
+        n_neighbors=int(best["n_neighbors"]),
+        query_batch_size=args.query_batch_size,
+    )
+    best_test_pred = label_norm.inverse_transform(best_test_pred_n)
+    best["test"] = mse_report(best_test_pred, test_y)
+    best["test_normalized"] = mse_report(best_test_pred_n, test_y_n)
+    best["feature_stats"] = best_feature_stats
+    best["selection_metric"] = "valid_normalized.mean_mse"
+
     np.savez_compressed(
         out_dir / "best_test_predictions.npz",
-        pred=np.asarray(best.pop("test_pred"), dtype=np.float32),
+        pred=np.asarray(best_test_pred, dtype=np.float32),
         target=test_y.astype(np.float32),
-        pred_normalized=np.asarray(best.pop("test_pred_normalized"), dtype=np.float32),
+        pred_normalized=np.asarray(best_test_pred_n, dtype=np.float32),
         target_normalized=test_y_n.astype(np.float32),
     )
     feature_stats = best.pop("feature_stats")
