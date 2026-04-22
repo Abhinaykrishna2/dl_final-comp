@@ -11,10 +11,12 @@ from .utils import (
     LabelNormalizer,
     atomic_torch_save,
     choose_device,
+    configure_torch_runtime,
     ensure_dir,
     mse_report,
     normalize_feature_splits,
     save_json,
+    seed_everything,
 )
 
 
@@ -30,6 +32,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--grad-clip", type=float, default=0.0)
     parser.add_argument("--device", type=str, default="auto")
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--deterministic", action="store_true", help="Enable deterministic PyTorch behavior where feasible.")
     parser.add_argument(
         "--feature-norms",
         nargs="+",
@@ -234,8 +237,8 @@ def _train_one(
 
 def main() -> None:
     args = parse_args()
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
+    seed_everything(args.seed)
+    configure_torch_runtime(deterministic=args.deterministic)
     device = choose_device(args.device)
     out_dir = ensure_dir(args.out_dir)
 

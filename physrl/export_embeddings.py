@@ -9,7 +9,16 @@ from torch.utils.data import DataLoader
 
 from .data import ActiveMatterWindowDataset
 from .models import ConvEncoder
-from .utils import choose_device, ensure_dir, parse_int_list, pool_features
+from .utils import (
+    choose_device,
+    configure_torch_runtime,
+    ensure_dir,
+    make_torch_generator,
+    parse_int_list,
+    pool_features,
+    seed_everything,
+    seed_worker,
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -25,12 +34,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--split", nargs="+", default=["train", "valid", "test"])
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--num-workers", type=int, default=4)
+    parser.add_argument("--prefetch-factor", type=int, default=4)
     parser.add_argument("--device", type=str, default="auto")
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--deterministic", action="store_true", help="Enable deterministic PyTorch behavior where feasible.")
     parser.add_argument("--amp", action="store_true", help="Use mixed-precision inference on CUDA during export.")
     parser.add_argument(
         "--amp-dtype",
         choices=["float16", "bfloat16"],
-        default="float16",
+        default="bfloat16",
         help="Autocast dtype used when --amp is enabled.",
     )
     parser.add_argument("--context-frames", type=int, default=None)
@@ -38,6 +50,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--resolution", type=int, default=None)
     parser.add_argument("--pool", type=str, choices=["avg", "flatten", "avgmax"], default="avg")
     parser.add_argument("--max-samples", type=int, default=None)
+    parser.add_argument(
+        "--index-mode",
+        choices=["single_clip", "sliding_window"],
+        default="single_clip",
+        help="How to convert raw trajectories into encoder inputs. Default keeps one deterministic clip per simulation.",
+    )
+    parser.add_argument(
+        "--clip-selection",
+        choices=["start", "center", "end"],
+        default="center",
+        help="Clip position used when --index-mode single_clip.",
+    )
     return parser.parse_args()
 
 
@@ -71,6 +95,10 @@ def _load_encoder(checkpoint_path: Path, device: torch.device) -> tuple[ConvEnco
 
 def main() -> None:
     args = parse_args()
+    if args.index_mode != "sliding_window" and args.stride != 1:
+        raise SystemExit("--stride only applies when --index-mode sliding_window")
+    seed_everything(args.seed)
+    configure_torch_runtime(deterministic=args.deterministic)
     device = choose_device(args.device)
     out_dir = ensure_dir(args.out_dir)
     encoder, train_config = _load_encoder(args.checkpoint, device)
@@ -87,6 +115,8 @@ def main() -> None:
             stride=args.stride,
             resolution=resolution,
             max_samples=args.max_samples,
+            index_mode=args.index_mode,
+            clip_selection=args.clip_selection,
         )
         loader = DataLoader(
             dataset,
@@ -95,6 +125,9 @@ def main() -> None:
             num_workers=args.num_workers,
             pin_memory=torch.cuda.is_available(),
             persistent_workers=args.num_workers > 0,
+            prefetch_factor=args.prefetch_factor if args.num_workers > 0 else None,
+            worker_init_fn=seed_worker if args.num_workers > 0 else None,
+            generator=make_torch_generator(args.seed),
         )
 
         all_embeddings: list[np.ndarray] = []
@@ -122,6 +155,8 @@ def main() -> None:
             labels=labels,
             split=np.asarray(split),
             pool=np.asarray(args.pool),
+            index_mode=np.asarray(args.index_mode),
+            clip_selection=np.asarray(args.clip_selection),
             train_checkpoint=np.asarray(str(args.checkpoint)),
             train_config=np.asarray(str(train_config)),
         )
@@ -130,6 +165,8 @@ def main() -> None:
                 "split": split,
                 "samples": int(embeddings.shape[0]),
                 "embedding_dim": int(embeddings.shape[1]),
+                "index_mode": args.index_mode,
+                "clip_selection": args.clip_selection,
                 "out_path": str(out_path),
             },
             flush=True,

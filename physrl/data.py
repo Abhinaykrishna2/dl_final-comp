@@ -17,6 +17,8 @@ from . import LABEL_NAMES
 
 FIELD_GROUPS = ("t0_fields", "t1_fields", "t2_fields")
 VALID_SPLITS = {"train", "valid", "val", "test"}
+VALID_INDEX_MODES = {"single_clip", "sliding_window"}
+VALID_CLIP_SELECTIONS = {"start", "center", "end"}
 
 
 @dataclass(frozen=True)
@@ -66,6 +68,8 @@ class ActiveMatterWindowDataset(Dataset):
         resolution: Optional[int] = 224,
         max_samples: Optional[int] = None,
         max_open_files: int = 4,
+        index_mode: str = "sliding_window",
+        clip_selection: str = "center",
     ) -> None:
         if context_frames < 1:
             raise ValueError("context_frames must be >= 1")
@@ -73,6 +77,10 @@ class ActiveMatterWindowDataset(Dataset):
             raise ValueError("target_frames must be >= 0")
         if stride < 1:
             raise ValueError("stride must be >= 1")
+        if index_mode not in VALID_INDEX_MODES:
+            raise ValueError(f"unsupported index_mode: {index_mode}")
+        if clip_selection not in VALID_CLIP_SELECTIONS:
+            raise ValueError(f"unsupported clip_selection: {clip_selection}")
 
         self.split = canonical_split(split)
         self.root = Path(root).expanduser().resolve()
@@ -84,6 +92,8 @@ class ActiveMatterWindowDataset(Dataset):
         self.resolution = resolution
         self.max_samples = max_samples
         self.max_open_files = max_open_files
+        self.index_mode = index_mode
+        self.clip_selection = clip_selection
         self._open_files: OrderedDict[str, h5py.File] | None = None
 
         self.files = self._discover_files()
@@ -142,11 +152,25 @@ class ActiveMatterWindowDataset(Dataset):
             if max_start < 0:
                 continue
             for sim_idx in range(file_info.n_sims):
+                if self.index_mode == "single_clip":
+                    start = self._single_clip_start(max_start)
+                    entries.append((file_idx, sim_idx, start))
+                    if self.max_samples is not None and len(entries) >= self.max_samples:
+                        return entries
+                    continue
+
                 for start in range(0, max_start + 1, self.stride):
                     entries.append((file_idx, sim_idx, start))
                     if self.max_samples is not None and len(entries) >= self.max_samples:
                         return entries
         return entries
+
+    def _single_clip_start(self, max_start: int) -> int:
+        if self.clip_selection == "start":
+            return 0
+        if self.clip_selection == "end":
+            return int(max_start)
+        return int(max_start // 2)
 
     def _extract_label_table(self, h5: h5py.File, n_sims: int) -> np.ndarray:
         if "scalars" not in h5:
@@ -282,6 +306,8 @@ def collect_split_labels(
     split: str,
     *,
     max_samples: Optional[int] = None,
+    index_mode: str = "single_clip",
+    clip_selection: str = "center",
 ) -> np.ndarray:
     dataset = ActiveMatterWindowDataset(
         root=root,
@@ -291,6 +317,8 @@ def collect_split_labels(
         stride=1,
         resolution=224,
         max_samples=max_samples,
+        index_mode=index_mode,
+        clip_selection=clip_selection,
     )
     labels = [dataset.file_infos[file_idx].labels[sim_idx] for file_idx, sim_idx, _ in dataset.index]
     return np.asarray(labels, dtype=np.float32)

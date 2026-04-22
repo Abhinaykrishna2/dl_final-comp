@@ -20,7 +20,17 @@ except Exception:  # pragma: no cover
 from .data import ActiveMatterWindowDataset
 from .losses import vicreg_loss
 from .models import JepaModel
-from .utils import atomic_torch_save, choose_device, ensure_dir, parse_int_list, save_json, seed_everything
+from .utils import (
+    atomic_torch_save,
+    choose_device,
+    configure_torch_runtime,
+    ensure_dir,
+    make_torch_generator,
+    parse_int_list,
+    save_json,
+    seed_everything,
+    seed_worker,
+)
 
 
 METRIC_KEYS = (
@@ -79,6 +89,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--epochs", type=int, default=30)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--num-workers", type=int, default=4)
+    parser.add_argument("--prefetch-factor", type=int, default=4)
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--min-lr", type=float, default=1e-6)
     parser.add_argument("--weight-decay", type=float, default=0.05)
@@ -89,6 +100,24 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--target-frames", type=int, default=16)
     parser.add_argument("--train-stride", type=int, default=1)
     parser.add_argument("--valid-stride", type=int, default=1)
+    parser.add_argument(
+        "--train-index-mode",
+        choices=["single_clip", "sliding_window"],
+        default="sliding_window",
+        help="How to sample training clips from raw trajectories.",
+    )
+    parser.add_argument(
+        "--valid-index-mode",
+        choices=["single_clip", "sliding_window"],
+        default="single_clip",
+        help="How to sample validation clips from raw trajectories.",
+    )
+    parser.add_argument(
+        "--clip-selection",
+        choices=["start", "center", "end"],
+        default="center",
+        help="Clip position used when an index mode is single_clip.",
+    )
     parser.add_argument("--resolution", type=int, default=224)
     parser.add_argument("--dims", type=str, default="16,32,64,128,128")
     parser.add_argument("--num-res-blocks", type=str, default="3,3,3,9,3")
@@ -103,6 +132,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-train-samples", type=int, default=None)
     parser.add_argument("--max-valid-samples", type=int, default=None)
     parser.add_argument("--amp", action="store_true")
+    parser.add_argument(
+        "--amp-dtype",
+        choices=["float16", "bfloat16"],
+        default="bfloat16",
+        help="Autocast dtype used when --amp is enabled.",
+    )
+    parser.add_argument("--deterministic", action="store_true", help="Enable deterministic PyTorch behavior where feasible.")
     parser.add_argument(
         "--init-checkpoint",
         type=Path,
@@ -140,8 +176,10 @@ def _build_loader(
     *,
     batch_size: int,
     num_workers: int,
+    prefetch_factor: int,
     shuffle: bool,
     sampler: Sampler[int] | None = None,
+    seed: int,
 ) -> DataLoader:
     return DataLoader(
         dataset,
@@ -151,6 +189,9 @@ def _build_loader(
         num_workers=num_workers,
         pin_memory=torch.cuda.is_available(),
         persistent_workers=num_workers > 0,
+        prefetch_factor=prefetch_factor if num_workers > 0 else None,
+        worker_init_fn=seed_worker if num_workers > 0 else None,
+        generator=make_torch_generator(seed),
     )
 
 
@@ -340,9 +381,14 @@ def main() -> None:
         blocks = parse_int_list(args.num_res_blocks)
         if len(dims) != len(blocks):
             raise SystemExit("--dims and --num-res-blocks must have the same number of entries")
+        if args.train_index_mode != "sliding_window" and args.train_stride != 1:
+            raise SystemExit("--train-stride only applies when --train-index-mode sliding_window")
+        if args.valid_index_mode != "sliding_window" and args.valid_stride != 1:
+            raise SystemExit("--valid-stride only applies when --valid-index-mode sliding_window")
 
         dist_state = _init_dist_state(args.device, args.dist_backend)
         seed_everything(args.seed)
+        configure_torch_runtime(deterministic=args.deterministic)
 
         out_dir = ensure_dir(args.out_dir)
         train_dataset = ActiveMatterWindowDataset(
@@ -353,6 +399,8 @@ def main() -> None:
             stride=args.train_stride,
             resolution=args.resolution,
             max_samples=args.max_train_samples,
+            index_mode=args.train_index_mode,
+            clip_selection=args.clip_selection,
         )
         valid_dataset = ActiveMatterWindowDataset(
             root=args.data_root,
@@ -362,6 +410,8 @@ def main() -> None:
             stride=args.valid_stride,
             resolution=args.resolution,
             max_samples=args.max_valid_samples,
+            index_mode=args.valid_index_mode,
+            clip_selection=args.clip_selection,
         )
 
         train_sampler: Sampler[int] | None = None
@@ -384,15 +434,19 @@ def main() -> None:
             train_dataset,
             batch_size=args.batch_size,
             num_workers=args.num_workers,
+            prefetch_factor=args.prefetch_factor,
             shuffle=True,
             sampler=train_sampler,
+            seed=args.seed + dist_state.rank,
         )
         valid_loader = _build_loader(
             valid_dataset,
             batch_size=args.batch_size,
             num_workers=args.num_workers,
+            prefetch_factor=args.prefetch_factor,
             shuffle=False,
             sampler=valid_sampler,
+            seed=args.seed + 10_000 + dist_state.rank,
         )
 
         model = JepaModel(
@@ -415,7 +469,10 @@ def main() -> None:
         optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
         total_steps = max(1, args.epochs * len(train_loader))
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=total_steps, eta_min=args.min_lr)
-        scaler = torch.cuda.amp.GradScaler(enabled=args.amp and dist_state.device.type == "cuda")
+        amp_dtype = torch.float16 if args.amp_dtype == "float16" else torch.bfloat16
+        scaler = torch.cuda.amp.GradScaler(
+            enabled=args.amp and dist_state.device.type == "cuda" and amp_dtype == torch.float16
+        )
 
         best_val = float("inf")
         history: list[dict[str, float | int]] = []
@@ -503,9 +560,11 @@ def main() -> None:
                     device_ids=[dist_state.device.index],
                     output_device=dist_state.device.index,
                     broadcast_buffers=False,
+                    gradient_as_bucket_view=True,
+                    static_graph=True,
                 )
             else:
-                model = DDP(model, broadcast_buffers=False)
+                model = DDP(model, broadcast_buffers=False, gradient_as_bucket_view=True, static_graph=True)
 
         for epoch in range(start_epoch, args.epochs + 1):
             start_time = time.time()
@@ -523,8 +582,8 @@ def main() -> None:
                 optimizer.zero_grad(set_to_none=True)
                 with torch.autocast(
                     device_type=dist_state.device.type,
-                    dtype=torch.float16,
-                    enabled=scaler.is_enabled(),
+                    dtype=amp_dtype,
+                    enabled=args.amp and dist_state.device.type == "cuda",
                 ):
                     pred_latent, target_latent = model(context, target)
                     loss_dict = vicreg_loss(
@@ -569,19 +628,24 @@ def main() -> None:
                 for batch in valid_loader:
                     context = batch["context"].to(dist_state.device, non_blocking=True)
                     target = batch["target"].to(dist_state.device, non_blocking=True)
-                    pred_latent, target_latent = model(context, target)
-                    loss_dict = vicreg_loss(
-                        pred_latent,
-                        target_latent,
-                        sim_coeff=args.sim_coeff,
-                        std_coeff=args.std_coeff,
-                        cov_coeff=args.cov_coeff,
-                        n_chunks=args.loss_chunks,
-                        num_groups=args.loss_groups,
-                        fp32_stats=args.loss_fp32_stats,
-                        zscore_for_cov=args.loss_zscore_for_cov,
-                        adaptive_cov_scale=args.loss_adaptive_cov_scale,
-                    )
+                    with torch.autocast(
+                        device_type=dist_state.device.type,
+                        dtype=amp_dtype,
+                        enabled=args.amp and dist_state.device.type == "cuda",
+                    ):
+                        pred_latent, target_latent = model(context, target)
+                        loss_dict = vicreg_loss(
+                            pred_latent,
+                            target_latent,
+                            sim_coeff=args.sim_coeff,
+                            std_coeff=args.std_coeff,
+                            cov_coeff=args.cov_coeff,
+                            n_chunks=args.loss_chunks,
+                            num_groups=args.loss_groups,
+                            fp32_stats=args.loss_fp32_stats,
+                            zscore_for_cov=args.loss_zscore_for_cov,
+                            adaptive_cov_scale=args.loss_adaptive_cov_scale,
+                        )
                     batch_size = int(context.shape[0])
                     valid_sample_count += batch_size
                     _update_metric_sums(valid_metric_sums, loss_dict, batch_size)

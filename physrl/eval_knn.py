@@ -8,7 +8,15 @@ import torch
 import torch.nn.functional as F
 from sklearn.neighbors import KNeighborsRegressor
 
-from .utils import LabelNormalizer, choose_device, ensure_dir, mse_report, normalize_feature_splits, save_json
+from .utils import (
+    LabelNormalizer,
+    choose_device,
+    configure_torch_runtime,
+    ensure_dir,
+    mse_report,
+    normalize_feature_splits,
+    save_json,
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -197,6 +205,7 @@ def _predict_test_with_backend(
 def main() -> None:
     args = parse_args()
     out_dir = ensure_dir(args.out_dir)
+    configure_torch_runtime(deterministic=False)
     device = choose_device(args.device)
     backend = _resolve_backend(args.backend, device)
 

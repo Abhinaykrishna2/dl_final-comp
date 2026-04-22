@@ -6,11 +6,11 @@ dataset is the number of simulation trajectories in that file.
 This script counts:
   - files   : number of .hdf5 files on disk
   - sims    : total simulation trajectories (first axis across all files)
-  - windows : total 32-frame sliding windows extractable from those sims
-              (each simulation has 81 time steps, so 81 - 32 + 1 = 50 windows)
-              The 32-frame window follows the baseline paper: 16 context frames
-              fed to the encoder + 16 target frames whose representation is
-              predicted (JEPA-style).  stride = 1.
+  - single_clips : one deterministic 16-frame clip per simulation
+  - windows      : total 32-frame sliding windows extractable from those sims
+                   (each simulation has 81 time steps, so 81 - 32 + 1 = 50 windows)
+                   The 32-frame window follows the JEPA training setup:
+                   16 context frames + 16 target frames, stride = 1.
 """
 
 from __future__ import annotations
@@ -23,18 +23,21 @@ import h5py
 
 # Field used to read the number of simulations per file.
 _PROBE_FIELD = "t0_fields/concentration"
-# Full window = context (16) + target (16), following the baseline paper.
+# Single evaluation clip = 16 encoder frames.
+_CLIP = 16
+# Full JEPA window = context (16) + target (16).
 _WINDOW = 32
 
 
-def count_split(path: Path) -> tuple[int, int, int]:
-    """Return (n_files, n_sims, n_windows) for a split directory."""
+def count_split(path: Path) -> tuple[int, int, int, int]:
+    """Return (n_files, n_sims, n_single_clips, n_windows) for a split directory."""
     if not path.exists():
-        return 0, 0, 0
+        return 0, 0, 0, 0
 
     hdf5_files = sorted(path.glob("*.hdf5"))
     n_files = len(hdf5_files)
     n_sims = 0
+    n_single_clips = 0
     n_windows = 0
 
     for f in hdf5_files:
@@ -42,9 +45,10 @@ def count_split(path: Path) -> tuple[int, int, int]:
             shape = h[_PROBE_FIELD].shape  # (sims, steps, H, W)
             sims, steps = shape[0], shape[1]
         n_sims += sims
+        n_single_clips += sims * int(steps >= _CLIP)
         n_windows += sims * max(0, steps - _WINDOW + 1)
 
-    return n_files, n_sims, n_windows
+    return n_files, n_sims, n_single_clips, n_windows
 
 
 def main() -> int:
@@ -61,11 +65,11 @@ def main() -> int:
     ]
 
     print(f"root: {root.resolve()}")
-    print(f"{'split':<6}  {'files':>6}  {'sims':>6}  {'samples (w=32,s=1)':>18}")
-    print("-" * 44)
+    print(f"{'split':<6}  {'files':>6}  {'sims':>6}  {'single clips':>14}  {'sliding windows':>18}")
+    print("-" * 62)
     for name, path in splits:
-        n_files, n_sims, n_windows = count_split(path)
-        print(f"{name:<6}  {n_files:>6}  {n_sims:>6}  {n_windows:>18}")
+        n_files, n_sims, n_single_clips, n_windows = count_split(path)
+        print(f"{name:<6}  {n_files:>6}  {n_sims:>6}  {n_single_clips:>14}  {n_windows:>18}")
 
     return 0
 

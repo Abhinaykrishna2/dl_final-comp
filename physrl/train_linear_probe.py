@@ -7,7 +7,18 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 
-from .utils import atomic_torch_save, LabelNormalizer, choose_device, ensure_dir, mse_report, normalize_feature_splits, save_json
+from .utils import (
+    atomic_torch_save,
+    LabelNormalizer,
+    choose_device,
+    configure_torch_runtime,
+    ensure_dir,
+    make_torch_generator,
+    mse_report,
+    normalize_feature_splits,
+    save_json,
+    seed_everything,
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -26,6 +37,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--feature-norm", choices=["none", "zscore", "l2", "zscore_l2"], default="zscore")
     parser.add_argument("--patience", type=int, default=15)
     parser.add_argument("--grad-clip", type=float, default=0.0)
+    parser.add_argument("--deterministic", action="store_true", help="Enable deterministic PyTorch behavior where feasible.")
     parser.add_argument(
         "--resume",
         nargs="?",
@@ -70,8 +82,8 @@ def _resolve_resume_path(out_dir: Path, resume: str | None) -> Path | None:
 
 def main() -> None:
     args = parse_args()
-    torch.manual_seed(args.seed)
-    np.random.seed(args.seed)
+    seed_everything(args.seed)
+    configure_torch_runtime(deterministic=args.deterministic)
     device = choose_device(args.device)
     out_dir = ensure_dir(args.out_dir)
 
@@ -95,9 +107,11 @@ def main() -> None:
         TensorDataset(torch.from_numpy(train_x), torch.from_numpy(train_y_n)),
         batch_size=args.batch_size,
         shuffle=True,
+        generator=make_torch_generator(args.seed),
     )
 
-    best_valid = float("inf")
+    best_valid_selection = float("inf")
+    best_valid_raw = float("inf")
     best_state: dict[str, torch.Tensor] | None = None
     history: list[dict[str, float | int]] = []
     epochs_without_improvement = 0
@@ -111,7 +125,10 @@ def main() -> None:
         model.load_state_dict(payload["state_dict"])
         optimizer.load_state_dict(payload["optimizer"])
         scheduler.load_state_dict(payload["scheduler"])
-        best_valid = float(payload.get("best_valid_mean_mse", best_valid))
+        best_valid_selection = float(
+            payload.get("best_valid_mean_mse_normalized", payload.get("best_valid_mean_mse", best_valid_selection))
+        )
+        best_valid_raw = float(payload.get("best_valid_mean_mse", best_valid_raw))
         if "best_state" in payload and payload["best_state"] is not None:
             best_state = payload["best_state"]
         history = list(payload.get("history", []))
@@ -122,7 +139,8 @@ def main() -> None:
                 "status": "resumed",
                 "resume_path": str(resume_path),
                 "next_epoch": start_epoch,
-                "best_valid_mean_mse": best_valid,
+                "best_valid_mean_mse": best_valid_raw,
+                "best_valid_mean_mse_normalized": best_valid_selection,
             },
             flush=True,
         )
@@ -171,8 +189,9 @@ def main() -> None:
         history.append(epoch_record)
         print(epoch_record, flush=True)
 
-        if valid_report["mean_mse"] < best_valid:
-            best_valid = valid_report["mean_mse"]
+        if valid_report_normalized["mean_mse"] < best_valid_selection:
+            best_valid_selection = valid_report_normalized["mean_mse"]
+            best_valid_raw = valid_report["mean_mse"]
             best_state = {key: value.detach().cpu() for key, value in model.state_dict().items()}
             epochs_without_improvement = 0
             atomic_torch_save(
@@ -181,7 +200,9 @@ def main() -> None:
                     "state_dict": best_state,
                     "feature_stats": feature_stats,
                     "label_stats": label_norm.to_dict(),
-                    "best_valid_mean_mse": best_valid,
+                    "best_valid_mean_mse": best_valid_raw,
+                    "best_valid_mean_mse_normalized": best_valid_selection,
+                    "selection_metric": "valid_normalized.mean_mse",
                     "history": history,
                     "train_file": str(args.train_file),
                     "valid_file": str(args.valid_file),
@@ -199,7 +220,9 @@ def main() -> None:
             "scheduler": scheduler.state_dict(),
             "feature_stats": feature_stats,
             "label_stats": label_norm.to_dict(),
-            "best_valid_mean_mse": best_valid,
+            "best_valid_mean_mse": best_valid_raw,
+            "best_valid_mean_mse_normalized": best_valid_selection,
+            "selection_metric": "valid_normalized.mean_mse",
             "epochs_without_improvement": epochs_without_improvement,
             "history": history,
             "train_file": str(args.train_file),
@@ -226,7 +249,9 @@ def main() -> None:
             "state_dict": best_state,
             "feature_stats": feature_stats,
             "label_stats": label_norm.to_dict(),
-            "best_valid_mean_mse": best_valid,
+            "best_valid_mean_mse": best_valid_raw,
+            "best_valid_mean_mse_normalized": best_valid_selection,
+            "selection_metric": "valid_normalized.mean_mse",
             "train_file": str(args.train_file),
             "valid_file": str(args.valid_file),
             "test_file": str(args.test_file),
@@ -249,7 +274,9 @@ def main() -> None:
     save_json(
         out_dir / "metrics.json",
         {
-            "best_valid_mean_mse": best_valid,
+            "best_valid_mean_mse": best_valid_raw,
+            "best_valid_mean_mse_normalized": best_valid_selection,
+            "selection_metric": "valid_normalized.mean_mse",
             "valid": valid_report,
             "test": test_report,
             "valid_normalized": mse_report(valid_pred_n, valid_y_n),
