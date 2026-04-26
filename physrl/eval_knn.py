@@ -10,9 +10,13 @@ from sklearn.neighbors import KNeighborsRegressor
 
 from .utils import (
     LabelNormalizer,
+    add_wandb_args,
     choose_device,
     configure_torch_runtime,
     ensure_dir,
+    flatten_metrics,
+    init_wandb_run,
+    log_wandb_artifact,
     mse_report,
     normalize_feature_splits,
     save_json,
@@ -37,6 +41,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--backend", choices=["auto", "torch", "sklearn"], default="auto")
     parser.add_argument("--device", type=str, default="auto")
     parser.add_argument("--query-batch-size", type=int, default=2048)
+    add_wandb_args(parser)
     return parser.parse_args()
 
 
@@ -217,9 +222,27 @@ def main() -> None:
     train_y_n = label_norm.transform(train_y)
     valid_y_n = label_norm.transform(valid_y)
     test_y_n = label_norm.transform(test_y)
+    wandb_run = init_wandb_run(
+        mode=args.wandb_mode,
+        entity=args.wandb_entity,
+        project=args.wandb_project,
+        run_name=args.wandb_run_name,
+        out_dir=out_dir,
+        config={
+            **vars(args),
+            "resolved_backend": backend,
+            "train_shape": list(train_x_raw.shape),
+            "valid_shape": list(valid_x_raw.shape),
+            "test_shape": list(test_x_raw.shape),
+            "label_stats": label_norm.to_dict(),
+            "selection_metric": "valid_normalized.mean_mse",
+        },
+        job_type="knn-regression",
+    )
 
     best: dict[str, object] | None = None
     search_results: list[dict[str, object]] = []
+    trial_index = 0
 
     for feature_norm in args.feature_norm:
         train_x, valid_x, test_x, feature_stats = normalize_feature_splits(
@@ -244,6 +267,7 @@ def main() -> None:
                     valid_report_normalized = mse_report(valid_pred_n, valid_y_n)
                     valid_report = mse_report(valid_pred, valid_y)
                     result = {
+                        "trial_index": trial_index,
                         "feature_norm": feature_norm,
                         "n_neighbors": int(min(n_neighbors, train_x.shape[0])),
                         "weights": weights,
@@ -254,12 +278,15 @@ def main() -> None:
                     }
                     search_results.append(result)
                     print(result, flush=True)
+                    if wandb_run is not None:
+                        wandb_run.log(flatten_metrics(result, prefix="knn/trial"), step=trial_index)
 
                     if (
                         best is None
                         or valid_report_normalized["mean_mse"] < best["valid_normalized"]["mean_mse"]
                     ):
                         best = {
+                            "trial_index": trial_index,
                             "feature_norm": feature_norm,
                             "n_neighbors": int(min(n_neighbors, train_x.shape[0])),
                             "weights": weights,
@@ -269,6 +296,7 @@ def main() -> None:
                             "valid_normalized": valid_report_normalized,
                             "feature_stats": feature_stats,
                         }
+                    trial_index += 1
 
     if best is None:
         raise RuntimeError("kNN search produced no result")
@@ -304,15 +332,36 @@ def main() -> None:
         target_normalized=test_y_n.astype(np.float32),
     )
     feature_stats = best.pop("feature_stats")
-    save_json(
-        out_dir / "metrics.json",
-        {
-            "best": best,
-            "search_results": search_results,
-            "feature_stats": feature_stats,
-            "label_stats": label_norm.to_dict(),
-        },
-    )
+    metrics_payload = {
+        "best": best,
+        "search_results": search_results,
+        "feature_stats": feature_stats,
+        "label_stats": label_norm.to_dict(),
+    }
+    save_json(out_dir / "metrics.json", metrics_payload)
+    if wandb_run is not None:
+        wandb_run.log(flatten_metrics(best, prefix="knn/best"))
+        wandb_run.summary["best_trial_index"] = int(best["trial_index"])
+        wandb_run.summary["best_feature_norm"] = str(best["feature_norm"])
+        wandb_run.summary["best_n_neighbors"] = int(best["n_neighbors"])
+        wandb_run.summary["best_weights"] = str(best["weights"])
+        wandb_run.summary["best_metric"] = str(best["metric"])
+        wandb_run.summary["test_mean_mse"] = float(best["test"]["mean_mse"])
+        wandb_run.summary["test_mean_mse_normalized"] = float(best["test_normalized"]["mean_mse"])
+        log_wandb_artifact(
+            wandb_run,
+            name=f"knn-{out_dir.name}",
+            artifact_type="knn-regression",
+            paths=[
+                out_dir / "metrics.json",
+                out_dir / "best_test_predictions.npz",
+            ],
+            metadata={
+                "selection_metric": "valid_normalized.mean_mse",
+                "best_trial_index": int(best["trial_index"]),
+            },
+        )
+        wandb_run.finish()
 
 
 if __name__ == "__main__":

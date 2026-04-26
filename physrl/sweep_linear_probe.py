@@ -9,10 +9,14 @@ import torch
 
 from .utils import (
     LabelNormalizer,
+    add_wandb_args,
     atomic_torch_save,
     choose_device,
     configure_torch_runtime,
     ensure_dir,
+    flatten_metrics,
+    init_wandb_run,
+    log_wandb_artifact,
     mse_report,
     normalize_feature_splits,
     save_json,
@@ -54,6 +58,7 @@ def parse_args() -> argparse.Namespace:
         default="auto",
         help="Move normalized embedding splits to the target device once per feature_norm sweep.",
     )
+    add_wandb_args(parser)
     return parser.parse_args()
 
 
@@ -249,6 +254,22 @@ def main() -> None:
     train_y_n = label_norm.transform(train_y)
     valid_y_n = label_norm.transform(valid_y)
     test_y_n = label_norm.transform(test_y)
+    wandb_run = init_wandb_run(
+        mode=args.wandb_mode,
+        entity=args.wandb_entity,
+        project=args.wandb_project,
+        run_name=args.wandb_run_name,
+        out_dir=out_dir,
+        config={
+            **vars(args),
+            "train_shape": list(train_x_raw.shape),
+            "valid_shape": list(valid_x_raw.shape),
+            "test_shape": list(test_x_raw.shape),
+            "label_stats": label_norm.to_dict(),
+            "selection_metric": "valid_normalized.mean_mse",
+        },
+        job_type="linear-probe-sweep",
+    )
 
     best_result: dict[str, object] | None = None
     search_results: list[dict[str, object]] = []
@@ -308,6 +329,8 @@ def main() -> None:
             }
             search_results.append(trial_record)
             print(trial_record, flush=True)
+            if wandb_run is not None:
+                wandb_run.log(flatten_metrics(trial_record, prefix="linear_probe_sweep/trial"), step=trial_index)
 
             if (
                 best_result is None
@@ -397,30 +420,54 @@ def main() -> None:
         pred_normalized=np.asarray(best_result["test_pred_normalized"], dtype=np.float32),
         target_normalized=test_y_n.astype(np.float32),
     )
-    save_json(
-        out_dir / "metrics.json",
-        {
-            "best_slug": best_slug,
-            "best": {
-                "trial_index": best_result["trial_index"],
-                "feature_norm": best_result["feature_norm"],
-                "lr": best_result["lr"],
-                "weight_decay": best_result["weight_decay"],
-                "batch_size": best_result["batch_size"],
-                "best_valid_mean_mse": best_result["valid"]["mean_mse"],
-                "best_valid_mean_mse_normalized": best_result["best_valid_mean_mse_normalized"],
-                "selection_metric": "valid_normalized.mean_mse",
-                "valid": best_result["valid"],
-                "valid_normalized": best_result["valid_normalized"],
-                "test": best_result["test"],
-                "test_normalized": best_result["test_normalized"],
-                "epochs_trained": len(best_result["history"]),
-            },
-            "search_results": search_results,
-            "feature_stats": best_result["feature_stats"],
-            "label_stats": best_result["label_stats"],
+    metrics_payload = {
+        "best_slug": best_slug,
+        "best": {
+            "trial_index": best_result["trial_index"],
+            "feature_norm": best_result["feature_norm"],
+            "lr": best_result["lr"],
+            "weight_decay": best_result["weight_decay"],
+            "batch_size": best_result["batch_size"],
+            "best_valid_mean_mse": best_result["valid"]["mean_mse"],
+            "best_valid_mean_mse_normalized": best_result["best_valid_mean_mse_normalized"],
+            "selection_metric": "valid_normalized.mean_mse",
+            "valid": best_result["valid"],
+            "valid_normalized": best_result["valid_normalized"],
+            "test": best_result["test"],
+            "test_normalized": best_result["test_normalized"],
+            "epochs_trained": len(best_result["history"]),
         },
-    )
+        "search_results": search_results,
+        "feature_stats": best_result["feature_stats"],
+        "label_stats": best_result["label_stats"],
+    }
+    save_json(out_dir / "metrics.json", metrics_payload)
+    if wandb_run is not None:
+        wandb_run.log(flatten_metrics(metrics_payload["best"], prefix="linear_probe_sweep/best"))
+        wandb_run.summary["best_slug"] = best_slug
+        wandb_run.summary["best_feature_norm"] = str(best_result["feature_norm"])
+        wandb_run.summary["best_lr"] = float(best_result["lr"])
+        wandb_run.summary["best_weight_decay"] = float(best_result["weight_decay"])
+        wandb_run.summary["best_batch_size"] = int(best_result["batch_size"])
+        wandb_run.summary["best_valid_mean_mse_normalized"] = float(best_result["best_valid_mean_mse_normalized"])
+        wandb_run.summary["test_mean_mse"] = float(best_result["test"]["mean_mse"])
+        wandb_run.summary["test_mean_mse_normalized"] = float(best_result["test_normalized"]["mean_mse"])
+        log_wandb_artifact(
+            wandb_run,
+            name=f"linear-probe-sweep-{out_dir.name}",
+            artifact_type="linear-probe-sweep",
+            paths=[
+                out_dir / "best_linear_probe.pt",
+                out_dir / "metrics.json",
+                out_dir / "valid_predictions.npz",
+                out_dir / "test_predictions.npz",
+            ],
+            metadata={
+                "best_slug": best_slug,
+                "selection_metric": "valid_normalized.mean_mse",
+            },
+        )
+        wandb_run.finish()
 
 
 if __name__ == "__main__":

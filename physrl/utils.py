@@ -11,6 +11,13 @@ import torch
 
 from . import LABEL_NAMES
 
+try:
+    import wandb
+    _WANDB_IMPORT_ERROR: Exception | None = None
+except Exception as exc:  # pragma: no cover
+    wandb = None
+    _WANDB_IMPORT_ERROR = exc
+
 
 def configure_torch_runtime(*, deterministic: bool = False, allow_tf32: bool = True) -> None:
     if deterministic:
@@ -80,6 +87,84 @@ def save_json(path: str | Path, payload: dict[str, Any]) -> None:
         json.dumps(payload, indent=2, sort_keys=True, default=_json_default) + "\n",
         encoding="utf-8",
     )
+
+
+def add_wandb_args(
+    parser: Any,
+    *,
+    default_project: str = "dl_final-comp",
+    default_entity: str = "abhinaykrishna60-new-york-university",
+) -> None:
+    parser.add_argument(
+        "--wandb-mode",
+        choices=["online", "offline", "disabled"],
+        default="online",
+        help="Weights & Biases logging mode.",
+    )
+    parser.add_argument("--wandb-entity", type=str, default=default_entity)
+    parser.add_argument("--wandb-project", type=str, default=default_project)
+    parser.add_argument("--wandb-run-name", type=str, default=None)
+
+
+def init_wandb_run(
+    *,
+    mode: str,
+    entity: str,
+    project: str,
+    run_name: str | None,
+    out_dir: str | Path,
+    config: dict[str, Any],
+    job_type: str,
+) -> Any | None:
+    if mode == "disabled":
+        return None
+    if wandb is None:
+        raise RuntimeError(f"wandb is not importable, but wandb logging is enabled: {_WANDB_IMPORT_ERROR}")
+    safe_config = json.loads(json.dumps(config, default=_json_default))
+    return wandb.init(
+        entity=entity,
+        project=project,
+        name=run_name,
+        dir=str(out_dir),
+        config=safe_config,
+        mode=mode,
+        job_type=job_type,
+    )
+
+
+def flatten_metrics(payload: dict[str, Any], *, prefix: str = "") -> dict[str, float | int | str]:
+    flattened: dict[str, float | int | str] = {}
+    for key, value in payload.items():
+        metric_key = f"{prefix}/{key}" if prefix else str(key)
+        if isinstance(value, dict):
+            flattened.update(flatten_metrics(value, prefix=metric_key))
+        elif isinstance(value, (float, int, str)):
+            flattened[metric_key] = value
+        elif isinstance(value, (np.floating, np.integer)):
+            flattened[metric_key] = value.item()
+    return flattened
+
+
+def log_wandb_artifact(
+    run: Any | None,
+    *,
+    name: str,
+    artifact_type: str,
+    paths: list[str | Path],
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    if run is None:
+        return
+    safe_name = name.replace("/", "-").replace(" ", "-")
+    artifact = wandb.Artifact(safe_name, type=artifact_type, metadata=metadata or {})
+    added = False
+    for path in paths:
+        artifact_path = Path(path)
+        if artifact_path.exists():
+            artifact.add_file(str(artifact_path))
+            added = True
+    if added:
+        run.log_artifact(artifact)
 
 
 def atomic_torch_save(path: str | Path, payload: Any) -> None:

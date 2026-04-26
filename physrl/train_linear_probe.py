@@ -8,11 +8,15 @@ import torch
 from torch.utils.data import DataLoader, TensorDataset
 
 from .utils import (
+    add_wandb_args,
     atomic_torch_save,
     LabelNormalizer,
     choose_device,
     configure_torch_runtime,
     ensure_dir,
+    flatten_metrics,
+    init_wandb_run,
+    log_wandb_artifact,
     make_torch_generator,
     mse_report,
     normalize_feature_splits,
@@ -46,6 +50,7 @@ def parse_args() -> argparse.Namespace:
         help="Resume from a linear-probe checkpoint path, or use out-dir/last_linear_probe.pt with 'auto'.",
     )
     parser.add_argument("--save-every", type=int, default=1, help="Write numbered linear-probe checkpoints every N epochs.")
+    add_wandb_args(parser)
     return parser.parse_args()
 
 
@@ -97,6 +102,23 @@ def main() -> None:
     label_norm = LabelNormalizer.fit(train_y)
     train_y_n = label_norm.transform(train_y)
     valid_y_n = label_norm.transform(valid_y)
+    wandb_run = init_wandb_run(
+        mode=args.wandb_mode,
+        entity=args.wandb_entity,
+        project=args.wandb_project,
+        run_name=args.wandb_run_name,
+        out_dir=out_dir,
+        config={
+            **vars(args),
+            "train_shape": list(train_x.shape),
+            "valid_shape": list(valid_x.shape),
+            "test_shape": list(test_x.shape),
+            "feature_stats": feature_stats,
+            "label_stats": label_norm.to_dict(),
+            "selection_metric": "valid_normalized.mean_mse",
+        },
+        job_type="linear-probe",
+    )
 
     model = torch.nn.Linear(train_x.shape[1], train_y.shape[1]).to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
@@ -154,6 +176,8 @@ def main() -> None:
             },
             flush=True,
         )
+        if wandb_run is not None:
+            wandb_run.finish()
         return
 
     for epoch in range(start_epoch, args.epochs + 1):
@@ -188,6 +212,8 @@ def main() -> None:
         }
         history.append(epoch_record)
         print(epoch_record, flush=True)
+        if wandb_run is not None:
+            wandb_run.log(flatten_metrics(epoch_record, prefix="linear_probe"), step=epoch)
 
         if valid_report_normalized["mean_mse"] < best_valid_selection:
             best_valid_selection = valid_report_normalized["mean_mse"]
@@ -271,21 +297,41 @@ def main() -> None:
         pred_normalized=test_pred_n.astype(np.float32),
         target_normalized=label_norm.transform(test_y).astype(np.float32),
     )
-    save_json(
-        out_dir / "metrics.json",
-        {
-            "best_valid_mean_mse": best_valid_raw,
-            "best_valid_mean_mse_normalized": best_valid_selection,
-            "selection_metric": "valid_normalized.mean_mse",
-            "valid": valid_report,
-            "test": test_report,
-            "valid_normalized": mse_report(valid_pred_n, valid_y_n),
-            "test_normalized": mse_report(test_pred_n, label_norm.transform(test_y)),
-            "feature_stats": feature_stats,
-            "label_stats": label_norm.to_dict(),
-            "history": history,
-        },
-    )
+    metrics_payload = {
+        "best_valid_mean_mse": best_valid_raw,
+        "best_valid_mean_mse_normalized": best_valid_selection,
+        "selection_metric": "valid_normalized.mean_mse",
+        "valid": valid_report,
+        "test": test_report,
+        "valid_normalized": mse_report(valid_pred_n, valid_y_n),
+        "test_normalized": mse_report(test_pred_n, label_norm.transform(test_y)),
+        "feature_stats": feature_stats,
+        "label_stats": label_norm.to_dict(),
+        "history": history,
+    }
+    save_json(out_dir / "metrics.json", metrics_payload)
+    if wandb_run is not None:
+        wandb_run.log(flatten_metrics(metrics_payload, prefix="linear_probe/final"))
+        wandb_run.summary["best_valid_mean_mse"] = best_valid_raw
+        wandb_run.summary["best_valid_mean_mse_normalized"] = best_valid_selection
+        wandb_run.summary["test_mean_mse"] = test_report["mean_mse"]
+        wandb_run.summary["test_mean_mse_normalized"] = metrics_payload["test_normalized"]["mean_mse"]
+        log_wandb_artifact(
+            wandb_run,
+            name=f"linear-probe-{out_dir.name}",
+            artifact_type="linear-probe",
+            paths=[
+                out_dir / "best_linear_probe.pt",
+                out_dir / "metrics.json",
+                out_dir / "valid_predictions.npz",
+                out_dir / "test_predictions.npz",
+            ],
+            metadata={
+                "selection_metric": "valid_normalized.mean_mse",
+                "best_valid_mean_mse_normalized": best_valid_selection,
+            },
+        )
+        wandb_run.finish()
 
 
 if __name__ == "__main__":
