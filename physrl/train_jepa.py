@@ -18,8 +18,8 @@ except Exception:  # pragma: no cover
     wandb = None
 
 from .data import ActiveMatterWindowDataset
-from .losses import vicreg_loss
-from .models import JepaModel
+from .losses import sigreg_jepa_loss, vicreg_loss
+from .models import JepaModel, SigRegJepaModel
 from .utils import (
     atomic_torch_save,
     choose_device,
@@ -35,6 +35,8 @@ from .utils import (
 
 METRIC_KEYS = (
     "loss",
+    "pred_loss",
+    "sigreg_loss",
     "repr_loss",
     "std_loss",
     "cov_loss",
@@ -90,9 +92,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--num-workers", type=int, default=4)
     parser.add_argument("--prefetch-factor", type=int, default=4)
-    parser.add_argument("--lr", type=float, default=1e-3)
-    parser.add_argument("--min-lr", type=float, default=1e-6)
-    parser.add_argument("--weight-decay", type=float, default=0.05)
+    parser.add_argument("--lr", type=float, default=5e-4)
+    parser.add_argument("--min-lr", type=float, default=5e-7)
+    parser.add_argument("--warmup-epochs", type=float, default=5.0)
+    parser.add_argument("--warmup-start-factor", type=float, default=1e-3)
+    parser.add_argument("--weight-decay", type=float, default=5e-4)
     parser.add_argument("--grad-clip", type=float, default=1.0)
     parser.add_argument("--device", type=str, default="auto")
     parser.add_argument("--seed", type=int, default=42)
@@ -119,8 +123,13 @@ def parse_args() -> argparse.Namespace:
         help="Clip position used when an index mode is single_clip.",
     )
     parser.add_argument("--resolution", type=int, default=224)
-    parser.add_argument("--dims", type=str, default="16,32,64,128,128")
-    parser.add_argument("--num-res-blocks", type=str, default="3,3,3,9,3")
+    parser.add_argument("--dims", type=str, default="32,64,128,256,256")
+    parser.add_argument("--num-res-blocks", type=str, default="2,2,4,8,2")
+    parser.add_argument("--stem-patch-size", type=int, default=2)
+    parser.add_argument("--stem-kernel-size", type=int, default=4)
+    parser.add_argument("--drop-path-rate", type=float, default=0.05)
+    parser.add_argument("--layer-scale-init-value", type=float, default=1e-6)
+    parser.add_argument("--loss-type", choices=["sigreg", "sicreg", "vicreg"], default="sigreg")
     parser.add_argument("--sim-coeff", type=float, default=2.0)
     parser.add_argument("--std-coeff", type=float, default=40.0)
     parser.add_argument("--cov-coeff", type=float, default=2.0)
@@ -129,6 +138,27 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--loss-fp32-stats", action="store_true")
     parser.add_argument("--loss-zscore-for-cov", action="store_true")
     parser.add_argument("--loss-adaptive-cov-scale", action="store_true")
+    parser.add_argument(
+        "--lejepa-lambda",
+        type=float,
+        default=0.05,
+        help="SIGReg trade-off lambda. Used as pred=(1-lambda), sigreg=lambda unless coeff overrides are set.",
+    )
+    parser.add_argument("--pred-coeff", type=float, default=None, help="Override the resolved LeJEPA prediction coefficient.")
+    parser.add_argument("--sigreg-coeff", type=float, default=None, help="Override the resolved SIGReg coefficient.")
+    parser.add_argument("--sigreg-slices", type=int, default=1024)
+    parser.add_argument("--sigreg-points", type=int, default=17)
+    parser.add_argument("--sigreg-t-max", type=float, default=3.0)
+    parser.add_argument("--projector-dim", type=int, default=256)
+    parser.add_argument("--projector-hidden-dim", type=int, default=1024)
+    parser.add_argument("--projector-layers", type=int, default=3)
+    parser.add_argument("--predictor-hidden-dim", type=int, default=1024)
+    parser.add_argument("--predictor-layers", type=int, default=2)
+    parser.add_argument(
+        "--target-stop-grad",
+        action="store_true",
+        help="Use a stop-gradient target branch for SIGReg JEPA ablations. Default follows LeJEPA and keeps gradients on both views.",
+    )
     parser.add_argument("--max-train-samples", type=int, default=None)
     parser.add_argument("--max-valid-samples", type=int, default=None)
     parser.add_argument("--amp", action="store_true")
@@ -272,10 +302,10 @@ def _init_dist_state(device_arg: str, dist_backend: str | None) -> DistState:
     )
 
 
-def _unwrap_model(model: torch.nn.Module) -> JepaModel:
+def _unwrap_model(model: torch.nn.Module) -> torch.nn.Module:
     if isinstance(model, DDP):
         return model.module
-    return model  # type: ignore[return-value]
+    return model
 
 
 def _empty_metric_sums() -> dict[str, float]:
@@ -284,7 +314,9 @@ def _empty_metric_sums() -> dict[str, float]:
 
 def _update_metric_sums(metric_sums: dict[str, float], loss_dict: dict[str, torch.Tensor], weight: int) -> None:
     for key in METRIC_KEYS:
-        metric_sums[key] += float(loss_dict[key].item()) * weight
+        value = loss_dict.get(key)
+        if value is not None:
+            metric_sums[key] += float(value.item()) * weight
 
 
 def _reduce_metric_summaries(
@@ -310,10 +342,11 @@ def _reduce_metric_summaries(
     }
 
 
-def _load_init_checkpoint(model: JepaModel, checkpoint_path: Path) -> dict[str, Any]:
+def _load_init_checkpoint(model: torch.nn.Module, checkpoint_path: Path) -> dict[str, Any]:
     payload = torch.load(checkpoint_path, map_location="cpu")
     loaded_encoder = False
     loaded_predictor = False
+    loaded_projector = False
 
     if "encoder" in payload:
         model.encoder.load_state_dict(payload["encoder"])
@@ -322,9 +355,15 @@ def _load_init_checkpoint(model: JepaModel, checkpoint_path: Path) -> dict[str, 
         model.encoder.load_state_dict(payload["state_dict"])
         loaded_encoder = True
 
-    if "predictor" in payload:
-        model.predictor.load_state_dict(payload["predictor"])
-        loaded_predictor = True
+    if "predictor" in payload and hasattr(model, "predictor"):
+        try:
+            model.predictor.load_state_dict(payload["predictor"])
+            loaded_predictor = True
+        except RuntimeError:
+            loaded_predictor = False
+    if "projector" in payload and hasattr(model, "projector"):
+        model.projector.load_state_dict(payload["projector"])
+        loaded_projector = True
 
     if not loaded_encoder:
         raise ValueError(
@@ -336,6 +375,7 @@ def _load_init_checkpoint(model: JepaModel, checkpoint_path: Path) -> dict[str, 
         "epoch": payload.get("epoch"),
         "loaded_encoder": loaded_encoder,
         "loaded_predictor": loaded_predictor,
+        "loaded_projector": loaded_projector,
         "source_best_valid_loss": payload.get("best_valid_loss"),
     }
 
@@ -372,15 +412,30 @@ def _init_wandb(
     return WandbState(enabled=True, run=run, run_id=run_id)
 
 
+def _count_params(module: torch.nn.Module) -> int:
+    return sum(parameter.numel() for parameter in module.parameters())
+
+
 def main() -> None:
     dist_state: DistState | None = None
     wandb_state = WandbState(enabled=False)
     try:
         args = parse_args()
+        loss_type = "sigreg" if args.loss_type == "sicreg" else args.loss_type
         dims = parse_int_list(args.dims)
         blocks = parse_int_list(args.num_res_blocks)
         if len(dims) != len(blocks):
             raise SystemExit("--dims and --num-res-blocks must have the same number of entries")
+        if args.warmup_epochs < 0:
+            raise SystemExit("--warmup-epochs must be non-negative")
+        if not (0.0 < args.warmup_start_factor <= 1.0):
+            raise SystemExit("--warmup-start-factor must be in (0, 1]")
+        if not (0.0 <= args.lejepa_lambda <= 1.0):
+            raise SystemExit("--lejepa-lambda must be in [0, 1]")
+        pred_coeff = float(1.0 - args.lejepa_lambda) if args.pred_coeff is None else float(args.pred_coeff)
+        sigreg_coeff = float(args.lejepa_lambda) if args.sigreg_coeff is None else float(args.sigreg_coeff)
+        if pred_coeff < 0.0 or sigreg_coeff < 0.0:
+            raise SystemExit("--pred-coeff and --sigreg-coeff must be non-negative")
         if args.train_index_mode != "sliding_window" and args.train_stride != 1:
             raise SystemExit("--train-stride only applies when --train-index-mode sliding_window")
         if args.valid_index_mode != "sliding_window" and args.valid_stride != 1:
@@ -449,13 +504,35 @@ def main() -> None:
             seed=args.seed + 10_000 + dist_state.rank,
         )
 
-        model = JepaModel(
-            in_chans=sum(field.channels for field in train_dataset.field_specs),
-            dims=dims,
-            num_res_blocks=blocks,
-            num_frames=args.context_frames,
-        ).to(dist_state.device)
+        model_kwargs = {
+            "in_chans": sum(field.channels for field in train_dataset.field_specs),
+            "dims": dims,
+            "num_res_blocks": blocks,
+            "num_frames": args.context_frames,
+            "stem_patch_size": args.stem_patch_size,
+            "stem_kernel_size": args.stem_kernel_size,
+            "drop_path_rate": args.drop_path_rate,
+            "layer_scale_init_value": args.layer_scale_init_value,
+        }
+        if loss_type == "sigreg":
+            model = SigRegJepaModel(
+                **model_kwargs,
+                projector_dim=args.projector_dim,
+                projector_hidden_dim=args.projector_hidden_dim,
+                projector_layers=args.projector_layers,
+                predictor_hidden_dim=args.predictor_hidden_dim,
+                predictor_layers=args.predictor_layers,
+            ).to(dist_state.device)
+        else:
+            model = JepaModel(**model_kwargs).to(dist_state.device)
+
+        total_steps = max(1, args.epochs * len(train_loader))
+        warmup_steps = min(max(0, int(args.warmup_epochs * len(train_loader))), max(total_steps - 1, 0))
+
         config_payload = vars(args).copy()
+        config_payload["loss_type"] = loss_type
+        config_payload["resolved_pred_coeff"] = pred_coeff
+        config_payload["resolved_sigreg_coeff"] = sigreg_coeff
         config_payload["dims"] = dims
         config_payload["num_res_blocks"] = blocks
         config_payload["in_chans"] = sum(field.channels for field in train_dataset.field_specs)
@@ -465,10 +542,42 @@ def main() -> None:
         config_payload["out_dir"] = str(out_dir)
         config_payload["train_samples"] = len(train_dataset)
         config_payload["valid_samples"] = len(valid_dataset)
+        config_payload["train_batches"] = len(train_loader)
+        config_payload["valid_batches"] = len(valid_loader)
+        config_payload["global_batch_size"] = args.batch_size * dist_state.world_size
+        config_payload["total_steps"] = total_steps
+        config_payload["warmup_steps"] = warmup_steps
+        config_payload["total_params"] = _count_params(model)
+        config_payload["encoder_params"] = _count_params(model.encoder)
+        if hasattr(model, "projector"):
+            config_payload["projector_params"] = _count_params(model.projector)
+        if hasattr(model, "predictor"):
+            config_payload["predictor_params"] = _count_params(model.predictor)
 
         optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-        total_steps = max(1, args.epochs * len(train_loader))
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=total_steps, eta_min=args.min_lr)
+        if warmup_steps > 0:
+            warmup_scheduler = torch.optim.lr_scheduler.LinearLR(
+                optimizer,
+                start_factor=args.warmup_start_factor,
+                end_factor=1.0,
+                total_iters=warmup_steps,
+            )
+            cosine_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+                optimizer,
+                T_max=max(1, total_steps - warmup_steps),
+                eta_min=args.min_lr,
+            )
+            scheduler: torch.optim.lr_scheduler.LRScheduler = torch.optim.lr_scheduler.SequentialLR(
+                optimizer,
+                schedulers=[warmup_scheduler, cosine_scheduler],
+                milestones=[warmup_steps],
+            )
+        else:
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+                optimizer,
+                T_max=total_steps,
+                eta_min=args.min_lr,
+            )
         amp_dtype = torch.float16 if args.amp_dtype == "float16" else torch.bfloat16
         scaler = torch.cuda.amp.GradScaler(
             enabled=args.amp and dist_state.device.type == "cuda" and amp_dtype == torch.float16
@@ -489,6 +598,10 @@ def main() -> None:
                 raise ValueError(f"resume checkpoint must be a full training checkpoint: {resume_path}")
             model.encoder.load_state_dict(resume_payload["encoder"])
             model.predictor.load_state_dict(resume_payload["predictor"])
+            if hasattr(model, "projector"):
+                if "projector" not in resume_payload:
+                    raise ValueError(f"SIGReg resume checkpoint is missing projector state: {resume_path}")
+                model.projector.load_state_dict(resume_payload["projector"])
             if "optimizer" in resume_payload:
                 optimizer.load_state_dict(resume_payload["optimizer"])
             if "scheduler" in resume_payload:
@@ -518,6 +631,7 @@ def main() -> None:
                 config_payload["init_checkpoint"] = init_summary["path"]
                 config_payload["init_checkpoint_epoch"] = init_summary["epoch"]
                 config_payload["init_loaded_predictor"] = init_summary["loaded_predictor"]
+                config_payload["init_loaded_projector"] = init_summary["loaded_projector"]
                 config_payload["init_source_best_valid_loss"] = init_summary["source_best_valid_loss"]
                 if dist_state.is_main_process:
                     print(
@@ -526,6 +640,7 @@ def main() -> None:
                             "init_checkpoint": init_summary["path"],
                             "checkpoint_epoch": init_summary["epoch"],
                             "loaded_predictor": init_summary["loaded_predictor"],
+                            "loaded_projector": init_summary["loaded_projector"],
                         },
                         flush=True,
                     )
@@ -575,7 +690,7 @@ def main() -> None:
             train_metric_sums = _empty_metric_sums()
             train_sample_count = 0
 
-            for batch in train_loader:
+            for batch_idx, batch in enumerate(train_loader):
                 context = batch["context"].to(dist_state.device, non_blocking=True)
                 target = batch["target"].to(dist_state.device, non_blocking=True)
 
@@ -585,19 +700,34 @@ def main() -> None:
                     dtype=amp_dtype,
                     enabled=args.amp and dist_state.device.type == "cuda",
                 ):
-                    pred_latent, target_latent = model(context, target)
-                    loss_dict = vicreg_loss(
-                        pred_latent,
-                        target_latent,
-                        sim_coeff=args.sim_coeff,
-                        std_coeff=args.std_coeff,
-                        cov_coeff=args.cov_coeff,
-                        n_chunks=args.loss_chunks,
-                        num_groups=args.loss_groups,
-                        fp32_stats=args.loss_fp32_stats,
-                        zscore_for_cov=args.loss_zscore_for_cov,
-                        adaptive_cov_scale=args.loss_adaptive_cov_scale,
-                    )
+                    if loss_type == "sigreg":
+                        output = model(context, target, target_stop_grad=args.target_stop_grad)
+                        loss_dict = sigreg_jepa_loss(
+                            output["predicted_projection"],
+                            output["target_projection"],
+                            output["sigreg_projection"],
+                            pred_coeff=pred_coeff,
+                            sigreg_coeff=sigreg_coeff,
+                            num_slices=args.sigreg_slices,
+                            num_points=args.sigreg_points,
+                            t_max=args.sigreg_t_max,
+                            seed=args.seed + epoch * max(len(train_loader), 1) + batch_idx,
+                            distributed=dist_state.enabled,
+                        )
+                    else:
+                        pred_latent, target_latent = model(context, target)
+                        loss_dict = vicreg_loss(
+                            pred_latent,
+                            target_latent,
+                            sim_coeff=args.sim_coeff,
+                            std_coeff=args.std_coeff,
+                            cov_coeff=args.cov_coeff,
+                            n_chunks=args.loss_chunks,
+                            num_groups=args.loss_groups,
+                            fp32_stats=args.loss_fp32_stats,
+                            zscore_for_cov=args.loss_zscore_for_cov,
+                            adaptive_cov_scale=args.loss_adaptive_cov_scale,
+                        )
                     loss = loss_dict["loss"]
 
                 prev_scale = scaler.get_scale() if scaler.is_enabled() else None
@@ -625,7 +755,7 @@ def main() -> None:
             valid_metric_sums = _empty_metric_sums()
             valid_sample_count = 0
             with torch.no_grad():
-                for batch in valid_loader:
+                for batch_idx, batch in enumerate(valid_loader):
                     context = batch["context"].to(dist_state.device, non_blocking=True)
                     target = batch["target"].to(dist_state.device, non_blocking=True)
                     with torch.autocast(
@@ -633,19 +763,34 @@ def main() -> None:
                         dtype=amp_dtype,
                         enabled=args.amp and dist_state.device.type == "cuda",
                     ):
-                        pred_latent, target_latent = model(context, target)
-                        loss_dict = vicreg_loss(
-                            pred_latent,
-                            target_latent,
-                            sim_coeff=args.sim_coeff,
-                            std_coeff=args.std_coeff,
-                            cov_coeff=args.cov_coeff,
-                            n_chunks=args.loss_chunks,
-                            num_groups=args.loss_groups,
-                            fp32_stats=args.loss_fp32_stats,
-                            zscore_for_cov=args.loss_zscore_for_cov,
-                            adaptive_cov_scale=args.loss_adaptive_cov_scale,
-                        )
+                        if loss_type == "sigreg":
+                            output = model(context, target, target_stop_grad=args.target_stop_grad)
+                            loss_dict = sigreg_jepa_loss(
+                                output["predicted_projection"],
+                                output["target_projection"],
+                                output["sigreg_projection"],
+                                pred_coeff=pred_coeff,
+                                sigreg_coeff=sigreg_coeff,
+                                num_slices=args.sigreg_slices,
+                                num_points=args.sigreg_points,
+                                t_max=args.sigreg_t_max,
+                                seed=args.seed + 10_000_000 + epoch * max(len(valid_loader), 1) + batch_idx,
+                                distributed=False,
+                            )
+                        else:
+                            pred_latent, target_latent = model(context, target)
+                            loss_dict = vicreg_loss(
+                                pred_latent,
+                                target_latent,
+                                sim_coeff=args.sim_coeff,
+                                std_coeff=args.std_coeff,
+                                cov_coeff=args.cov_coeff,
+                                n_chunks=args.loss_chunks,
+                                num_groups=args.loss_groups,
+                                fp32_stats=args.loss_fp32_stats,
+                                zscore_for_cov=args.loss_zscore_for_cov,
+                                adaptive_cov_scale=args.loss_adaptive_cov_scale,
+                            )
                     batch_size = int(context.shape[0])
                     valid_sample_count += batch_size
                     _update_metric_sums(valid_metric_sums, loss_dict, batch_size)
@@ -661,24 +806,38 @@ def main() -> None:
                 "epoch": epoch,
                 "seconds": round(elapsed, 2),
                 "train_loss": train_summary["loss"],
-                "train_repr_loss": train_summary["repr_loss"],
-                "train_std_loss": train_summary["std_loss"],
-                "train_cov_loss": train_summary["cov_loss"],
-                "train_std_loss_pred": train_summary["std_loss_pred"],
-                "train_std_loss_target": train_summary["std_loss_target"],
-                "train_cov_loss_pred": train_summary["cov_loss_pred"],
-                "train_cov_loss_target": train_summary["cov_loss_target"],
                 "valid_loss": valid_summary["loss"],
-                "valid_repr_loss": valid_summary["repr_loss"],
-                "valid_std_loss": valid_summary["std_loss"],
-                "valid_cov_loss": valid_summary["cov_loss"],
-                "valid_std_loss_pred": valid_summary["std_loss_pred"],
-                "valid_std_loss_target": valid_summary["std_loss_target"],
-                "valid_cov_loss_pred": valid_summary["cov_loss_pred"],
-                "valid_cov_loss_target": valid_summary["cov_loss_target"],
                 "lr": optimizer.param_groups[0]["lr"],
                 "world_size": dist_state.world_size,
             }
+            if loss_type == "sigreg":
+                epoch_record.update(
+                    {
+                        "train_pred_loss": train_summary["pred_loss"],
+                        "train_sigreg_loss": train_summary["sigreg_loss"],
+                        "valid_pred_loss": valid_summary["pred_loss"],
+                        "valid_sigreg_loss": valid_summary["sigreg_loss"],
+                    }
+                )
+            else:
+                epoch_record.update(
+                    {
+                        "train_repr_loss": train_summary["repr_loss"],
+                        "train_std_loss": train_summary["std_loss"],
+                        "train_cov_loss": train_summary["cov_loss"],
+                        "train_std_loss_pred": train_summary["std_loss_pred"],
+                        "train_std_loss_target": train_summary["std_loss_target"],
+                        "train_cov_loss_pred": train_summary["cov_loss_pred"],
+                        "train_cov_loss_target": train_summary["cov_loss_target"],
+                        "valid_repr_loss": valid_summary["repr_loss"],
+                        "valid_std_loss": valid_summary["std_loss"],
+                        "valid_cov_loss": valid_summary["cov_loss"],
+                        "valid_std_loss_pred": valid_summary["std_loss_pred"],
+                        "valid_std_loss_target": valid_summary["std_loss_target"],
+                        "valid_cov_loss_pred": valid_summary["cov_loss_pred"],
+                        "valid_cov_loss_target": valid_summary["cov_loss_target"],
+                    }
+                )
             history.append(epoch_record)
             if dist_state.is_main_process:
                 print(epoch_record, flush=True)
@@ -703,6 +862,8 @@ def main() -> None:
                     "history": history,
                     "wandb_run_id": wandb_state.run_id,
                 }
+                if hasattr(raw_model, "projector"):
+                    checkpoint["projector"] = raw_model.projector.state_dict()
                 atomic_torch_save(out_dir / "last.pt", checkpoint)
                 atomic_torch_save(
                     out_dir / "encoder_last.pt",

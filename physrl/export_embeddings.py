@@ -85,6 +85,10 @@ def _load_encoder(checkpoint_path: Path, device: torch.device) -> tuple[ConvEnco
         dims=dims,
         num_res_blocks=blocks,
         num_frames=num_frames,
+        stem_patch_size=int(config.get("stem_patch_size", 1)),
+        stem_kernel_size=int(config.get("stem_kernel_size", 4)),
+        drop_path_rate=float(config.get("drop_path_rate", 0.0)),
+        layer_scale_init_value=float(config.get("layer_scale_init_value", 1e-6)),
     )
     state_dict = payload["encoder"] if "encoder" in payload else payload["state_dict"]
     encoder.load_state_dict(state_dict)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import torch
+import torch.distributed as dist
 import torch.nn.functional as F
 
 def vicreg_loss(
@@ -150,3 +151,111 @@ def _vicreg_chunk(
         cov_loss_pred.detach(),
         cov_loss_target.detach(),
     )
+
+
+def _same_random_slices(
+    *,
+    in_dim: int,
+    num_slices: int,
+    device: torch.device,
+    dtype: torch.dtype,
+    seed: int,
+) -> torch.Tensor:
+    if device.type == "cuda":
+        generator = torch.Generator(device=device)
+        generator.manual_seed(int(seed))
+        slices = torch.randn((in_dim, num_slices), device=device, generator=generator, dtype=dtype)
+    else:
+        generator = torch.Generator()
+        generator.manual_seed(int(seed))
+        slices = torch.randn((in_dim, num_slices), device=device, generator=generator, dtype=dtype)
+    return F.normalize(slices, p=2, dim=0)
+
+
+def sigreg_loss(
+    embeddings: torch.Tensor,
+    *,
+    num_slices: int = 512,
+    num_points: int = 17,
+    t_max: float = 3.0,
+    seed: int = 0,
+    scale_by_samples: bool = True,
+    distributed: bool = True,
+) -> torch.Tensor:
+    if embeddings.ndim != 2:
+        raise ValueError(f"sigreg_loss expects embeddings shaped (N, D), got {tuple(embeddings.shape)}")
+    if num_slices < 1:
+        raise ValueError("num_slices must be >= 1")
+    if num_points < 3 or num_points % 2 == 0:
+        raise ValueError("num_points must be odd and >= 3")
+
+    x = embeddings.float()
+    n_local = torch.tensor(float(x.shape[0]), device=x.device, dtype=x.dtype)
+    slices = _same_random_slices(
+        in_dim=int(x.shape[1]),
+        num_slices=int(num_slices),
+        device=x.device,
+        dtype=x.dtype,
+        seed=seed,
+    )
+    projection = x @ slices
+
+    t = torch.linspace(0.0, float(t_max), int(num_points), device=x.device, dtype=x.dtype)
+    dt = float(t_max) / float(num_points - 1)
+    weights = torch.full((num_points,), 2.0 * dt, device=x.device, dtype=x.dtype)
+    weights[0] = dt
+    weights[-1] = dt
+    phi = torch.exp(-0.5 * t.square())
+    weights = weights * phi
+
+    args = projection.unsqueeze(-1) * t.view(1, 1, -1)
+    cos_sum = torch.cos(args).sum(dim=0)
+    sin_sum = torch.sin(args).sum(dim=0)
+    n_total = n_local.clone()
+    if distributed and dist.is_available() and dist.is_initialized():
+        dist.all_reduce(cos_sum, op=dist.ReduceOp.SUM)
+        dist.all_reduce(sin_sum, op=dist.ReduceOp.SUM)
+        dist.all_reduce(n_total, op=dist.ReduceOp.SUM)
+
+    denom = n_total.clamp_min(1.0)
+    cos_mean = cos_sum / denom
+    sin_mean = sin_sum / denom
+    err = (cos_mean - phi.view(1, -1)).square() + sin_mean.square()
+    statistic = err @ weights
+    if scale_by_samples:
+        statistic = statistic * denom
+    return statistic.mean()
+
+
+def sigreg_jepa_loss(
+    pred: torch.Tensor,
+    target: torch.Tensor,
+    sigreg_embeddings: torch.Tensor,
+    *,
+    pred_coeff: float = 1.0,
+    sigreg_coeff: float = 0.05,
+    num_slices: int = 512,
+    num_points: int = 17,
+    t_max: float = 3.0,
+    seed: int = 0,
+    distributed: bool = True,
+) -> dict[str, torch.Tensor]:
+    if pred.shape != target.shape:
+        raise ValueError(f"pred and target must have the same shape, got {tuple(pred.shape)} and {tuple(target.shape)}")
+
+    pred_loss = F.mse_loss(pred.float(), target.float())
+    distribution_loss = sigreg_loss(
+        sigreg_embeddings,
+        num_slices=num_slices,
+        num_points=num_points,
+        t_max=t_max,
+        seed=seed,
+        distributed=distributed,
+    )
+    total = float(pred_coeff) * pred_loss + float(sigreg_coeff) * distribution_loss
+    return {
+        "loss": total,
+        "pred_loss": pred_loss.detach(),
+        "repr_loss": pred_loss.detach(),
+        "sigreg_loss": distribution_loss.detach(),
+    }
