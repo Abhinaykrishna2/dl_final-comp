@@ -1,0 +1,38 @@
+{'status': 'initialized', 'path': '/root/dl_final-comp/videomae/artifacts/videomae_main/last.pt', 'loaded_encoder': True, 'loaded_decoder': True, 'loaded_mask_token': True, 'epoch': 25}
+wandb: Tracking run with wandb version 0.26.1
+wandb: W&B syncing is set to `offline` in this directory. Run `wandb online` or set WANDB_MODE=online to enable cloud syncing.
+wandb: Run data is saved locally in videomae/artifacts/videomae_mask75/wandb/offline-run-20260501_210011-ohrpkrbx
+{'epoch': 1, 'seconds': 187.83, 'train_loss': 0.5857128001291515, 'valid_loss': 0.5767295956611633, 'lr': 7.5e-05, 'world_size': 1}
+{'epoch': 2, 'seconds': 170.53, 'train_loss': 0.5807514666994928, 'valid_loss': 0.5688251852989197, 'lr': 7.351136678033276e-05, 'world_size': 1}
+{'epoch': 3, 'seconds': 172.23, 'train_loss': 0.5735306188451263, 'valid_loss': 0.5703626871109009, 'lr': 6.916606733154592e-05, 'world_size': 1}
+{'epoch': 4, 'seconds': 171.67, 'train_loss': 0.5660374286164453, 'valid_loss': 0.563305139541626, 'lr': 6.231613197248927e-05, 'world_size': 1}
+{'epoch': 5, 'seconds': 170.92, 'train_loss': 0.5587522680315621, 'valid_loss': 0.5530057549476624, 'lr': 5.3516501727819305e-05, 'world_size': 1}
+{'epoch': 6, 'seconds': 171.59, 'train_loss': 0.5531467577389308, 'valid_loss': 0.5522697567939758, 'lr': 4.348007030654319e-05, 'world_size': 1}
+{'epoch': 7, 'seconds': 171.22, 'train_loss': 0.5478196862559298, 'valid_loss': 0.5582368969917297, 'lr': 3.301992969345675e-05, 'world_size': 1}
+{'epoch': 8, 'seconds': 171.84, 'train_loss': 0.5445631931973742, 'valid_loss': 0.5529922246932983, 'lr': 2.2983498272180697e-05, 'world_size': 1}
+{'epoch': 9, 'seconds': 172.41, 'train_loss': 0.5414023555202402, 'valid_loss': 0.5469893217086792, 'lr': 1.4183868027510818e-05, 'world_size': 1}
+{'epoch': 10, 'seconds': 171.98, 'train_loss': 0.53937021038749, 'valid_loss': 0.5440222024917603, 'lr': 7.333932668454132e-06, 'world_size': 1}
+{'epoch': 11, 'seconds': 172.25, 'train_loss': 0.5384081132174571, 'valid_loss': 0.5468038320541382, 'lr': 2.9886332196672303e-06, 'world_size': 1}
+{'epoch': 12, 'seconds': 171.11, 'train_loss': 0.5373398583379143, 'valid_loss': 0.5484236478805542, 'lr': 1.5e-06, 'world_size': 1}
+wandb: 
+wandb: Run history:
+wandb:      epoch ▁▂▂▃▄▄▅▅▆▇▇█
+wandb:         lr ██▇▇▆▅▄▃▂▂▁▁
+wandb:    seconds █▁▂▁▁▁▁▂▂▂▂▁
+wandb: train_loss █▇▆▅▄▃▃▂▂▁▁▁
+wandb: valid_loss █▆▇▅▃▃▄▃▂▁▂▂
+wandb: world_size ▁▁▁▁▁▁▁▁▁▁▁▁
+wandb: 
+wandb: Run summary:
+wandb: best_valid_loss 0.54402
+wandb:           epoch 12
+wandb:      last_epoch 12
+wandb:              lr 0.0
+wandb:         seconds 171.11
+wandb:      train_loss 0.53734
+wandb:      valid_loss 0.54842
+wandb:      world_size 1
+wandb: 
+wandb: You can sync this run to the cloud by running:
+wandb: wandb sync videomae/artifacts/videomae_mask75/wandb/offline-run-20260501_210011-ohrpkrbx
+wandb: Find logs at: videomae/artifacts/videomae_mask75/wandb/offline-run-20260501_210011-ohrpkrbx/logs

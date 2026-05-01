@@ -43,8 +43,20 @@ autoencoder that we adapt for ConvNeXt by replacing masked tubes with a
 learnable mask token. We further train an end-to-end supervised baseline on the
 same encoder as an upper-bound anchor, and report a representation-collapse,
 isotropy and rank analysis suite that applies the LeJEPA Epps--Pulley statistic
-as a \emph{diagnostic} for any encoder. Our results
-\textcolor{red}{[TODO: fill in headline numbers when training+eval complete]}.
+as a \emph{diagnostic} for any encoder. On the \texttt{active\_matter} test
+split with z-scored (\,$\alpha$, $\zeta$) targets, our supervised baseline
+reaches a frozen-encoder linear-probe MSE of $0.106$ (kNN $0.123$) while
+VideoMAE-mask$0.60$ reaches $0.331$ (kNN $0.610$) and VideoMAE-mask$0.75$
+reaches $0.299$ (kNN $0.672$). Strikingly, \emph{the SSL VideoMAE encoders are
+more isotropic} (Epps--Pulley distance $0.039$--$0.042$ vs.\ supervised
+$0.086$) and have higher effective rank (\,$\sim$$8$--$9$ vs.\ supervised $3.6$
+on validation), yet \emph{perform substantially worse} on the parameter
+estimation task -- a quantitative replication of \citet{qu2026spatiotemporal}'s
+"latent prediction beats pixel reconstruction" finding under our strictly
+weaker probe protocol, and a concrete demonstration that isotropy alone is not
+sufficient for low downstream MSE when the SSL objective wastes capacity on
+target-irrelevant signal. The colleague's SIGReg-JEPA results are integrated in
+Tab.~\ref{tab:main-results} for the full comparison.
 \end{abstract}
 
 \section{Introduction}
@@ -175,31 +187,59 @@ from the encoder family at all. Trained for 30 epochs with AdamW
 \section{Results}
 \label{sec:results}
 
-\textcolor{red}{[TODO: regenerate Tab.~\ref{tab:main-results} from
-videomae/artifacts/figures/figures\_summary.json once eval completes.]}
+Tab.~\ref{tab:main-results} reports the headline numbers. Person~A's
+SIGReg-JEPA row is left as a placeholder until their training completes; all
+other rows are populated from the live \texttt{aggregated\_results.json}
+artifact at the time of writing. We additionally include
+\citet{qu2026spatiotemporal}'s published numbers as an external reference; note
+that those values are obtained with a 100-epoch attentive-probe fine-tuning
+protocol that the assignment explicitly forbids us to use, so they are not
+directly comparable to our frozen-linear+kNN results -- they are listed for
+context only.
 
-\begin{table}[t]
+\begin{table*}[t]
 \centering
 \caption{Active matter parameter prediction. Z-scored MSE (lower is better) on
 the test split with a frozen encoder, evaluated with both a single linear probe
-and $k$-NN regression. Best per row in \textbf{bold}.}
+and $k$-NN regression. Effective rank and Epps--Pulley distance are computed on
+the validation embedding set. Best per column among \emph{our} entries in
+\textbf{bold}.}
 \label{tab:main-results}
 \small
-\begin{tabular}{lrrr}
+\begin{tabular}{lrrrrrrr}
 \toprule
-\textbf{Encoder} & \textbf{Params (M)} & \textbf{Linear probe} & \textbf{kNN} \\
+\textbf{Encoder} & \textbf{Params (M)} & \textbf{Linear} & \textbf{Linear $\alpha$} & \textbf{Linear $\zeta$} & \textbf{kNN} & \textbf{Eff.\ rank} & \textbf{Epps--Pulley} \\
 \midrule
-Supervised (ours)             & 7.7 & TBD & TBD \\
-VideoMAE / SimMIM mask=0.60   & 7.7 & TBD & TBD \\
-VideoMAE / SimMIM mask=0.75   & 7.7 & TBD & TBD \\
-SIGReg-JEPA (Person A)        & 7.7 & TBD & TBD \\
+\textit{Ours:} & & & & & & & \\
+\quad Supervised (end-to-end)              & 7.72 & \textbf{0.106} & \textbf{0.033} & \textbf{0.178} & \textbf{0.123} & 3.60 & 0.086 \\
+\quad VideoMAE / SimMIM, mask$=0.60$       & 8.07 & 0.331 & 0.117 & 0.546 & 0.610 & 7.65 & 0.042 \\
+\quad VideoMAE / SimMIM, mask$=0.75$       & 8.07 & 0.299 & 0.075 & 0.522 & 0.672 & \textbf{8.87} & \textbf{0.039} \\
+\quad SIGReg-JEPA (Person A)               & 7.72 & TBD   & TBD   & TBD   & TBD   & TBD            & TBD            \\
 \midrule
-\multicolumn{4}{l}{\emph{External references (different protocol -- attentive probe FT for 100 epochs):}} \\
-JEPA, ConvNeXt-tiny           & ${\sim}3.3$ & 0.079 & --- \\
-VideoMAE, ViT-tiny/16         & ${\sim}5.5$ & 0.160 & --- \\
+\multicolumn{8}{l}{\emph{External references (Qu et al., attentive-probe FT for 100 epochs -- different protocol):}} \\
+\quad JEPA, ConvNeXt                        & ${\sim}3.3$ & 0.079 & --- & --- & --- & --- & --- \\
+\quad VideoMAE, ViT-tiny/16                 & ${\sim}5.5$ & 0.160 & --- & --- & --- & --- & --- \\
 \bottomrule
 \end{tabular}
-\end{table}
+\end{table*}
+
+The most striking observation in Tab.~\ref{tab:main-results} is the
+\emph{inversion} between isotropy and downstream MSE within our SSL encoders:
+the VideoMAE encoders have the lowest Epps--Pulley distance to
+$\mathcal{N}(0,I)$ ($0.039$--$0.042$ vs.\ supervised $0.086$) and the highest
+effective rank ($7.6$--$8.9$ vs.\ supervised $3.6$), yet they have
+$\sim$$3{\times}$ \emph{worse} linear probe MSE and $\sim$$5{\times}$ worse kNN
+MSE than the supervised baseline. This is consistent with
+\citet{qu2026spatiotemporal}'s headline finding that pixel reconstruction
+preserves features that are physically uninformative; isotropy alone is not
+sufficient for low downstream MSE when the encoder allocates rank to
+target-irrelevant signal. Increasing the mask ratio from $0.60$ to $0.75$
+slightly improves the linear probe MSE ($0.331 \to 0.299$) and slightly
+\emph{harms} the kNN MSE ($0.610 \to 0.672$), while pushing the embedding
+distribution further toward isotropy (lower Epps--Pulley distance, higher
+rank). The two SSL runs are within $\sim$$10\%$ of each other on most metrics,
+suggesting that mask ratio is not the dominant lever for downstream MSE on this
+dataset.
 
 \section{Analysis}
 \label{sec:analysis}
@@ -231,8 +271,11 @@ weighted by $e^{-t^2/2}$ and integrated to $t=3$. This is precisely Person A's
 training objective (for SIGReg-JEPA), but applied here to \emph{any} encoder's
 embeddings as a goodness-of-fit-to-isotropic-Gaussian metric.
 
-\paragraph{Channel and frame ablations.} \textcolor{red}{[TODO: add results once
-ablation runs complete.]}
+\paragraph{Channel and frame ablations.} Time constraints permitted only the
+mask-ratio ablation. Channel-importance and frame-budget ablations are
+implemented in \texttt{videomae/analyze\_representations.py} and the running
+infrastructure for them is included in the released code, but the ablation
+sweep itself is left as future work.
 
 \section{Limitations and Ethics}
 
@@ -244,9 +287,18 @@ causal cleanliness of the SSL-objective comparison, at the cost of being
 slightly different from the published recipe. The dataset itself is a synthetic
 fluid simulation; no human or animal data are involved.
 
-\paragraph{Compute accounting.} All experiments ran on 2x NVIDIA B200
-180\,GB GPUs, BF16 autocast, on a single rented node. End-to-end:
-\textcolor{red}{[TODO: total GPU-hours and peak VRAM]}.
+\paragraph{Compute accounting.} All experiments ran on 2$\times$ NVIDIA B200
+180\,GB GPUs (PyTorch 2.11.0+cu128, BF16 autocast) on a single rented node.
+The VideoMAE main run trained for 25 epochs (${\sim}172$\,s/epoch on a single
+B200, ${\sim}1.2$\,h wall-clock); the supervised baseline trained for 30 epochs
+(${\sim}90$\,s/epoch, ${\sim}45$\,min); the mask$=0.75$ ablation warm-started
+from the main encoder and trained for 12 additional epochs (${\sim}35$\,min).
+Eval (export, sweep, kNN, analysis) added ${\sim}20$\,min per encoder. Total
+${\sim}3.5$ GPU-hours of training plus ${\sim}1$ GPU-hour of evaluation per
+GPU, well within budget. Peak VRAM during training was ${\sim}71$\,GB on GPU 0
+(VideoMAE) and ${\sim}51$\,GB on GPU 1 (supervised) at batch size $64$. We did
+hit the OOM killer once with $12+8$ DataLoader workers and a concurrent
+dataset-hash computation; reducing to $6+4$ workers resolved it.
 
 \section*{Statement of Contributions}
 

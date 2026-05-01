@@ -1,0 +1,37 @@
+{
+  "data": {
+    "Supervised": {
+      "analysis": true,
+      "history": true,
+      "knn": true,
+      "linear_probe": true
+    },
+    "VideoMAE-mask60": {
+      "analysis": true,
+      "history": true,
+      "knn": true,
+      "linear_probe": true
+    },
+    "VideoMAE-mask75": {
+      "analysis": true,
+      "history": true,
+      "knn": true,
+      "linear_probe": true
+    }
+  },
+  "pdf": "/root/dl_final-comp/videomae/artifacts/figures/figures.pdf",
+  "runs": [
+    {
+      "label": "VideoMAE-mask60",
+      "run_dir": "/root/dl_final-comp/videomae/artifacts/videomae_main"
+    },
+    {
+      "label": "VideoMAE-mask75",
+      "run_dir": "/root/dl_final-comp/videomae/artifacts/videomae_mask75"
+    },
+    {
+      "label": "Supervised",
+      "run_dir": "/root/dl_final-comp/videomae/artifacts/supervised"
+    }
+  ]
+}
