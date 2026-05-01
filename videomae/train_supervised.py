@@ -140,6 +140,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--amp-dtype", choices=["float16", "bfloat16"], default="bfloat16")
     parser.add_argument("--deterministic", action="store_true")
     parser.add_argument("--save-every", type=int, default=2)
+    parser.add_argument("--resume", nargs="?", const="auto", default=None,
+                        help="Resume from a full training checkpoint or 'auto' for out-dir/last.pt.")
     parser.add_argument("--dist-backend", choices=["nccl", "gloo"], default=None)
     parser.add_argument("--wandb-mode", choices=["online", "offline", "disabled"], default="offline")
     parser.add_argument("--wandb-entity", type=str, default=None)
@@ -356,8 +358,39 @@ def main() -> None:
         best_val = float("inf")
         history: list[dict[str, float | int]] = []
         loss_fn = nn.MSELoss()
+        start_epoch = 1
 
-        for epoch in range(1, args.epochs + 1):
+        # Optional resume from previous checkpoint
+        if args.resume is not None:
+            if args.resume == "auto":
+                resume_path = out_dir / "last.pt"
+            else:
+                resume_path = Path(args.resume).expanduser().resolve()
+            if resume_path.exists():
+                payload = torch.load(resume_path, map_location="cpu", weights_only=False)
+                raw = _unwrap_model(model)
+                raw.encoder.load_state_dict(payload["encoder"])
+                raw.head.load_state_dict(payload["head"])
+                optimizer.load_state_dict(payload["optimizer"])
+                scheduler.load_state_dict(payload["scheduler"])
+                if "scaler" in payload:
+                    scaler.load_state_dict(payload["scaler"])
+                best_val = float(payload.get("best_valid_mean_mse_normalized", best_val))
+                history = list(payload.get("history", []))
+                start_epoch = int(payload.get("epoch", 0)) + 1
+                if dist_state.is_main_process:
+                    print({"status": "resumed", "resume_path": str(resume_path),
+                           "next_epoch": start_epoch, "best_valid_mean_mse_normalized": best_val}, flush=True)
+            elif dist_state.is_main_process:
+                print({"status": "no_resume_checkpoint", "looked_at": str(resume_path)}, flush=True)
+
+        if start_epoch > args.epochs:
+            if dist_state.is_main_process:
+                print({"status": "already_complete", "requested_epochs": args.epochs,
+                       "checkpoint_epoch": start_epoch - 1}, flush=True)
+            return
+
+        for epoch in range(start_epoch, args.epochs + 1):
             t0 = time.time()
             if isinstance(train_sampler, DistributedSampler):
                 train_sampler.set_epoch(epoch)

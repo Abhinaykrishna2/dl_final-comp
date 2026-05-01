@@ -1,0 +1,89 @@
+{
+  "best_valid_mean_mse_normalized": 0.20726080238819122,
+  "epochs": [
+    {
+      "epoch": 1,
+      "lr": 0.0003,
+      "seconds": 121.52,
+      "train_loss": 0.9513474649140815,
+      "valid_alpha_mse": 0.32160043716430664,
+      "valid_loss": 0.5998508930206299,
+      "valid_mean_mse": 14.38327407836914,
+      "valid_mean_mse_normalized": 0.5998509526252747,
+      "valid_zeta_mse": 28.444948196411133,
+      "world_size": 1
+    },
+    {
+      "epoch": 2,
+      "lr": 0.00029912948663742245,
+      "seconds": 129.73,
+      "train_loss": 0.6680899004976288,
+      "valid_alpha_mse": 0.39678168296813965,
+      "valid_loss": 0.5166453719139099,
+      "valid_mean_mse": 11.678637504577637,
+      "valid_mean_mse_normalized": 0.5166453719139099,
+      "valid_zeta_mse": 22.960493087768555,
+      "world_size": 1
+    },
+    {
+      "epoch": 3,
+      "lr": 0.0002965281525229478,
+      "seconds": 104.91,
+      "train_loss": 0.47750783708916994,
+      "valid_alpha_mse": 0.11487063765525818,
+      "valid_loss": 0.30298498272895813,
+      "valid_mean_mse": 7.546758651733398,
+      "valid_mean_mse_normalized": 0.30298498272895813,
+      "valid_zeta_mse": 14.978646278381348,
+      "world_size": 1
+    },
+    {
+      "epoch": 4,
+      "lr": 0.0002922264959206461,
+      "seconds": 89.4,
+      "train_loss": 0.30470814478497543,
+      "valid_alpha_mse": 0.18701429665088654,
+      "valid_loss": 0.3788923919200897,
+      "valid_mean_mse": 9.180608749389648,
+      "valid_mean_mse_normalized": 0.37889236211776733,
+      "valid_zeta_mse": 18.174203872680664,
+      "world_size": 1
+    },
+    {
+      "epoch": 5,
+      "lr": 0.00028627494982113704,
+      "seconds": 89.78,
+      "train_loss": 0.28199906320131124,
+      "valid_alpha_mse": 0.053488802164793015,
+      "valid_loss": 0.27552154660224915,
+      "valid_mean_mse": 7.164596080780029,
+      "valid_mean_mse_normalized": 0.2755216062068939,
+      "valid_zeta_mse": 14.275703430175781,
+      "world_size": 1
+    },
+    {
+      "epoch": 6,
+      "lr": 0.0002787432906608869,
+      "seconds": 89.94,
+      "train_loss": 0.22323396499918288,
+      "valid_alpha_mse": 0.0694669857621193,
+      "valid_loss": 0.2741891145706177,
+      "valid_mean_mse": 7.033775329589844,
+      "valid_mean_mse_normalized": 0.2741890847682953,
+      "valid_zeta_mse": 13.99808406829834,
+      "world_size": 1
+    },
+    {
+      "epoch": 7,
+      "lr": 0.000269719820257288,
+      "seconds": 91.65,
+      "train_loss": 0.21547789619249455,
+      "valid_alpha_mse": 0.06606432050466537,
+      "valid_loss": 0.20726081728935242,
+      "valid_mean_mse": 5.236582279205322,
+      "valid_mean_mse_normalized": 0.20726080238819122,
+      "valid_zeta_mse": 10.407100677490234,
+      "world_size": 1
+    }
+  ]
+}

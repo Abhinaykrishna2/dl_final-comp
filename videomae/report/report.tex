@@ -1,0 +1,326 @@
+% ICML 2026 final-project report.
+% Drop-in: replace \usepackage{icml2026} with the actual ICML 2026 style file
+% provided by the conference. Tested with the latest icml2025.sty as a placeholder.
+\documentclass{article}
+
+% ICML 2026 style placeholder. The conference provides icml2026.sty;
+% drop it next to this file and uncomment the line below. Until then, basic
+% article + booktabs + hyperref keeps the document compilable.
+% \usepackage[accepted]{icml2026}
+
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath, amssymb}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage[margin=1in]{geometry}
+
+\title{Pixel Reconstruction vs.\ Latent Prediction for Self-Supervised
+Representation Learning of Active Matter Dynamics}
+\author{Person A \quad Person B \\ NYU CSCI-GA 2572 (Spring 2026)}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We study self-supervised representation learning for the
+\texttt{active\_matter} subset of \emph{The Well} \citep{ohana2025well} under
+the strict frozen-encoder evaluation protocol mandated by our course (single
+linear probe and $k$-Nearest Neighbours regression for the physical parameters
+$\alpha$ and $\zeta$). We compare two SSL paradigms on a
+\emph{byte-identical} 3D ConvNeXt encoder so that any difference in downstream
+mean-squared error (MSE) is causally attributable to the SSL objective alone:
+(i) \textbf{SIGReg-JEPA} \citep{balestriero2026lejepa} -- latent prediction with
+distributional regularization toward an isotropic Gaussian; and (ii) a
+\textbf{VideoMAE/SimMIM-hybrid} \citep{tong2022videomae,xie2022simmim} masked
+autoencoder that we adapt for ConvNeXt by replacing masked tubes with a
+learnable mask token. We further train an end-to-end supervised baseline on the
+same encoder as an upper-bound anchor, and report a representation-collapse,
+isotropy and rank analysis suite that applies the LeJEPA Epps--Pulley statistic
+as a \emph{diagnostic} for any encoder. Our results
+\textcolor{red}{[TODO: fill in headline numbers when training+eval complete]}.
+\end{abstract}
+
+\section{Introduction}
+\label{sec:intro}
+
+Self-supervised learning has emerged as a foundation paradigm for representation
+learning in vision, language and, more recently, the physical sciences
+\citep{qu2026spatiotemporal,balestriero2023cookbook}. In this work we focus on
+\emph{active matter}, a subset of \emph{The Well} \citep{ohana2025well} that
+simulates rod-like active particles in a viscous Stokes fluid via continuum
+kinetic theory. Each trajectory is governed by two latent physical parameters
+-- the active dipole strength $\alpha$ and the steric alignment $\zeta$ -- and
+the central question is whether a self-supervised encoder, trained
+\emph{without access to those parameters}, learns a representation from which
+$\alpha$ and $\zeta$ can be recovered by a simple frozen-encoder probe.
+
+The closest published work to ours is \citet{qu2026spatiotemporal}, who report
+that on this exact dataset a JEPA-style encoder beats a VideoMAE-style encoder
+by ${\sim}51\%$ relative MSE (0.16 $\to$ 0.08) when the encoder is followed by
+a 100-epoch \emph{attentive-probe} fine-tuning stage. The course rules
+explicitly prohibit attentive probes and any fine-tuning of the backbone; only
+a single linear layer and $k$-NN are allowed for evaluation. Our
+\textbf{contribution} is to ask the same JEPA-vs-MAE question under this much
+stricter protocol, while \emph{controlling for the encoder family} (both
+methods share the byte-identical 3D ConvNeXt encoder, isolating the SSL
+objective as the only causal variable).
+
+In short, our contributions are:
+\begin{itemize}[topsep=2pt,itemsep=2pt]
+    \item A \textbf{controlled comparison} of two SSL objectives -- SIGReg
+    latent prediction (Person~A's stream) vs.\ VideoMAE/SimMIM pixel
+    reconstruction (Person~B's stream) -- on \emph{the same} 3D ConvNeXt
+    encoder, evaluated under the strict frozen-linear+kNN protocol.
+    \item A \textbf{SimMIM adaptation for non-ViT encoders}: depthwise 3D
+    ConvNeXts cannot use VideoMAE's asymmetric encoder-decoder, so we replace
+    masked tubes with a learnable per-channel mask token (Sec.\ \ref{sec:method-pixel}).
+    \item A \textbf{representation-quality analysis suite} that applies the
+    LeJEPA Epps--Pulley statistic \citep{balestriero2026lejepa} as a
+    \emph{diagnostic} for any frozen encoder, alongside effective rank,
+    participation ratio, condition number and channel/frame ablations
+    (Sec.\ \ref{sec:analysis}).
+    \item An \textbf{end-to-end supervised baseline} trained on the same
+    encoder, providing an upper-bound anchor and an interesting
+    "frozen-supervised" diagnostic.
+\end{itemize}
+
+\section{Setup}
+\label{sec:setup}
+
+\subsection{Dataset}
+The \texttt{active\_matter} subset comprises 8\,750 / 1\,200 / 1\,300 sliding
+windows of 16 frames at $224{\times}224$ spatial resolution and 11 physical
+channels (concentration scalar, 2-channel velocity, 4-channel orientation
+tensor, 4-channel strain-rate tensor); 45 unique $(\alpha,\zeta)$ combinations
+total. Detailed statistics are in Tab.~\ref{tab:dataset} (Appendix).
+
+\subsection{Encoder (shared between both SSL streams)}
+We use a 3D ConvNeXt encoder with stages of dimensions
+$(32, 64, 128, 256, 256)$ and per-stage block depths $(2, 2, 4, 8, 2)$, a
+$2{\times}4{\times}4$ stem patch and 0.05 stochastic depth. The total spatial
+downsampling is $32\times$ and temporal downsampling is $16\times$, yielding a
+$(B, 256, 7, 7)$ bottleneck per clip. The encoder has 7.7\,M parameters.
+
+\subsection{Evaluation protocol}
+For every encoder we extract frozen features and run \emph{both}
+(i) a single $\mathbf{nn.Linear}(256, 2)$ probe trained with MSE loss against
+$z$-scored $(\alpha, \zeta)$ on the train split, and (ii) a $k$-Nearest
+Neighbours regressor with hyperparameters swept over
+$k\in\{1,3,5,10,20,50\}$, weights $\in\{$uniform, distance$\}$, metrics
+$\in\{$cosine, euclidean$\}$ and feature normalization
+$\in\{$z-score, $\ell_2$, z+$\ell_2\}$. Model selection uses the validation
+split; the test split is touched only once per encoder for the final number.
+Label normalization (z-score) is fit on \emph{train labels only}.
+
+\section{SSL Objectives}
+\label{sec:method}
+
+\subsection{Latent prediction: SIGReg-JEPA (Person A)}
+\label{sec:method-jepa}
+\textcolor{red}{[Person A: fill in the SIGReg / LeJEPA section -- the
+Epps--Pulley distributional regularizer formulated against $\mathcal{N}(0, I)$,
+context/target temporal split, predictor architecture, etc.]}
+
+\subsection{Pixel reconstruction: VideoMAE/SimMIM hybrid (Person B)}
+\label{sec:method-pixel}
+We adapt VideoMAE \citep{tong2022videomae} for our 3D ConvNeXt encoder. Three
+adaptations are needed compared to the canonical ViT-based recipe:
+\begin{enumerate}[topsep=2pt,itemsep=2pt]
+    \item \textbf{Mask token replacement (SimMIM-style).} Depthwise 3D
+    convolutions require the full input tensor; we cannot use VideoMAE's
+    asymmetric encoder-decoder which drops masked tokens. Following SimMIM
+    \citep{xie2022simmim} we instead replace each masked tube with a learnable
+    per-channel mask token, broadcast over the tube extent, and feed the full
+    tensor to the encoder.
+    \item \textbf{Tube size aligned with encoder downsampling.} Per SimMIM
+    Sec.~4.1.2, the optimal mask patch size matches the encoder stride. With
+    $32\times$ spatial and $16\times$ temporal downsampling, our tube size is
+    $(16, 32, 32)$, giving a $7{\times}7=49$ tube grid per sample.
+    \item \textbf{Lightweight prediction head.} SimMIM Tab.~2 shows lightweight
+    heads transfer better than heavy decoders. We use a 5-stage
+    transposed-conv decoder (350\,k parameters) that mirrors the encoder
+    downsampling, mapping $(256, 7, 7) \to (11, 16, 224, 224)$. Total model
+    size is 8.07\,M parameters, well under the assignment's 100\,M cap.
+\end{enumerate}
+
+The reconstruction target is per-tube z-scored pixel values (VideoMAE
+Sec.~3.3), and the loss is MSE over masked positions only (SimMIM Tab.~4
+shows prediction-only beats full reconstruction):
+\begin{equation}
+\mathcal{L}_{\text{MAE}} = \frac{1}{|\mathcal{M}|}
+    \sum_{(c,t,h,w) \in \mathcal{M}}
+    \left( \hat{x}_{c,t,h,w} - \tilde{x}_{c,t,h,w} \right)^2,
+\end{equation}
+where $\mathcal{M}$ is the set of masked pixel coordinates and $\tilde{x}$ is
+the per-tube z-scored target. The encoder is trained for 25 epochs with AdamW
+($\text{lr}=1.5{\times}10^{-4}$, weight decay 0.05), a cosine schedule with
+2-epoch linear warmup, and BF16 autocast.
+
+\subsection{Supervised baseline (Person B)}
+\label{sec:method-supervised}
+We also train an end-to-end supervised baseline on the \emph{same} 3D ConvNeXt
+encoder followed by an $\mathbf{nn.Linear}(256, 2)$ head, optimizing $z$-scored
+MSE directly against $(\alpha, \zeta)$. This serves as an upper-bound anchor
+and exposes how much information about the physical parameters is recoverable
+from the encoder family at all. Trained for 30 epochs with AdamW
+($\text{lr}=3{\times}10^{-4}$).
+
+\section{Results}
+\label{sec:results}
+
+\textcolor{red}{[TODO: regenerate Tab.~\ref{tab:main-results} from
+videomae/artifacts/figures/figures\_summary.json once eval completes.]}
+
+\begin{table}[t]
+\centering
+\caption{Active matter parameter prediction. Z-scored MSE (lower is better) on
+the test split with a frozen encoder, evaluated with both a single linear probe
+and $k$-NN regression. Best per row in \textbf{bold}.}
+\label{tab:main-results}
+\small
+\begin{tabular}{lrrr}
+\toprule
+\textbf{Encoder} & \textbf{Params (M)} & \textbf{Linear probe} & \textbf{kNN} \\
+\midrule
+Supervised (ours)             & 7.7 & TBD & TBD \\
+VideoMAE / SimMIM mask=0.60   & 7.7 & TBD & TBD \\
+VideoMAE / SimMIM mask=0.75   & 7.7 & TBD & TBD \\
+SIGReg-JEPA (Person A)        & 7.7 & TBD & TBD \\
+\midrule
+\multicolumn{4}{l}{\emph{External references (different protocol -- attentive probe FT for 100 epochs):}} \\
+JEPA, ConvNeXt-tiny           & ${\sim}3.3$ & 0.079 & --- \\
+VideoMAE, ViT-tiny/16         & ${\sim}5.5$ & 0.160 & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Analysis}
+\label{sec:analysis}
+
+We evaluate every saved encoder with a representation-quality diagnostic suite
+that captures collapse, isotropy and rank phenomena. All metrics operate on the
+frozen-encoder embedding dump produced by \texttt{export\_embeddings.py}.
+
+\paragraph{Collapse via per-dim std.} The sorted per-dimension standard
+deviation curve (Fig.~\ref{fig:collapse}) makes representation collapse visible:
+a collapsed encoder exhibits a heavy long tail with most dimensions near zero,
+while a healthy encoder shows roughly uniform std.
+
+\paragraph{Effective rank and participation ratio.} We compute
+$\exp(H(p))$ where $p$ are the normalized eigenvalues of the embedding
+covariance, plus the participation ratio
+$(\sum \lambda_i)^2 / \sum \lambda_i^2$. Both are widely used proxies for the
+true dimensionality of a representation manifold.
+
+\paragraph{Condition number and off-diagonal correlation.} The covariance
+condition number $\lambda_{\max} / \lambda_{\min}$ and the mean absolute
+off-diagonal correlation reveal feature redundancy and ill-conditioning that
+hurts both linear probes and kNN with Euclidean distances.
+
+\paragraph{Epps--Pulley distance to $\mathcal{N}(0, I)$.} We repurpose the
+LeJEPA SIGReg statistic \citep{balestriero2026lejepa} as a generic diagnostic:
+the average squared characteristic-function error along random projections,
+weighted by $e^{-t^2/2}$ and integrated to $t=3$. This is precisely Person A's
+training objective (for SIGReg-JEPA), but applied here to \emph{any} encoder's
+embeddings as a goodness-of-fit-to-isotropic-Gaussian metric.
+
+\paragraph{Channel and frame ablations.} \textcolor{red}{[TODO: add results once
+ablation runs complete.]}
+
+\section{Limitations and Ethics}
+
+We trained on a single seed per configuration due to compute budget; multiple
+seeds would tighten the error bars on our headline comparison. We did not
+train a from-scratch ViT-based VideoMAE that would precisely replicate Qu et
+al.'s baseline -- our VideoMAE uses the colleague's ConvNeXt encoder for
+causal cleanliness of the SSL-objective comparison, at the cost of being
+slightly different from the published recipe. The dataset itself is a synthetic
+fluid simulation; no human or animal data are involved.
+
+\paragraph{Compute accounting.} All experiments ran on 2x NVIDIA B200
+180\,GB GPUs, BF16 autocast, on a single rented node. End-to-end:
+\textcolor{red}{[TODO: total GPU-hours and peak VRAM]}.
+
+\section*{Statement of Contributions}
+
+\textbf{Person A} authored the \texttt{physrl/} package (3D ConvNeXt encoder,
+JEPA latent-prediction objective, VICReg and SIGReg loss functions, the
+training/eval/sweep CLIs reused unchanged here, and the related-work review of
+JEPA-style SSL). Person~A's stream covers Sec.~\ref{sec:method-jepa} and the
+SIGReg-JEPA rows of Tab.~\ref{tab:main-results}.
+
+\textbf{Person B} authored the \texttt{videomae/} package (the
+VideoMAE/SimMIM-hybrid trainer, end-to-end supervised baseline,
+representation-quality analysis suite, the figure regeneration script, the
+detached training launchers, the dataset hash and ENV.md/requirements lock for
+reproducibility) and the corresponding paper sections
+(\ref{sec:method-pixel},~\ref{sec:method-supervised},~\ref{sec:analysis}).
+Files in \texttt{videomae/} whose names also appear in \texttt{physrl/} are
+derivative copies with rewritten imports; modifications are documented in their
+module docstrings.
+
+% References
+\begin{thebibliography}{9}
+
+\bibitem[Qu et al.(2026)]{qu2026spatiotemporal}
+Helen Qu, Rudy Morel, Michael McCabe, Alberto Bietti, Fran\c{c}ois Lanusse,
+Shirley Ho, Yann LeCun.
+\newblock Representation Learning for Spatiotemporal Physical Systems.
+\newblock \emph{ICLR 2026 Workshop on AI \& PDE}, arXiv:2603.13227, 2026.
+
+\bibitem[Tong et al.(2022)]{tong2022videomae}
+Zhan Tong, Yibing Song, Jue Wang, Limin Wang.
+\newblock VideoMAE: Masked Autoencoders are Data-Efficient Learners for
+Self-Supervised Video Pre-Training.
+\newblock \emph{NeurIPS 2022}, arXiv:2203.12602.
+
+\bibitem[Xie et al.(2022)]{xie2022simmim}
+Zhenda Xie, Zheng Zhang, Yue Cao, Yutong Lin, Jianmin Bao, Zhuliang Yao,
+Qi Dai, Han Hu.
+\newblock SimMIM: A Simple Framework for Masked Image Modeling.
+\newblock \emph{CVPR 2022}, arXiv:2111.09886.
+
+\bibitem[Balestriero \& LeCun(2026)]{balestriero2026lejepa}
+Randall Balestriero, Yann LeCun.
+\newblock LeJEPA: Provable and Scalable Self-Supervised Learning Without the
+Heuristics.
+\newblock arXiv:2511.08544, 2026.
+
+\bibitem[Bardes et al.(2021)]{bardes2021vicreg}
+Adrien Bardes, Jean Ponce, Yann LeCun.
+\newblock VICReg: Variance-Invariance-Covariance Regularization for
+Self-Supervised Learning.
+\newblock arXiv:2105.04906, 2021.
+
+\bibitem[Liu et al.(2022)]{liu2022convnext}
+Zhuang Liu, Hanzi Mao, Chao-Yuan Wu, Christoph Feichtenhofer, Trevor Darrell,
+Saining Xie.
+\newblock A ConvNet for the 2020s.
+\newblock \emph{CVPR 2022}.
+
+\bibitem[Ohana et al.(2025)]{ohana2025well}
+Ruben Ohana et al.
+\newblock The Well: a Large-Scale Collection of Diverse Physics Simulations
+for Machine Learning.
+\newblock arXiv:2412.00568, 2025.
+
+\bibitem[Balestriero et al.(2023)]{balestriero2023cookbook}
+Randall Balestriero et al.
+\newblock A Cookbook of Self-Supervised Learning.
+\newblock arXiv:2304.12210, 2023.
+
+\bibitem[He et al.(2022)]{he2022mae}
+Kaiming He, Xinlei Chen, Saining Xie, Yanghao Li, Piotr Doll\'ar, Ross Girshick.
+\newblock Masked Autoencoders Are Scalable Vision Learners.
+\newblock \emph{CVPR 2022}, arXiv:2111.06377.
+
+\end{thebibliography}
+
+\end{document}
