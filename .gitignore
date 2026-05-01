@@ -5,3 +5,7 @@ __pycache__/
 data/
 .hf-cache-active_matter/
 wandb/
+videomae/artifacts/**/*.pt
+videomae/artifacts/**/*.npz
+videomae/artifacts/**/wandb/
+videomae/artifacts/**/*.partial
