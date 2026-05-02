@@ -18,13 +18,14 @@ except Exception:  # pragma: no cover
     wandb = None
 
 from .data import ActiveMatterWindowDataset
-from .losses import sigreg_jepa_loss, vicreg_loss
+from .losses import sigreg_jepa_loss, sigreg_loss, vicreg_loss
 from .models import JepaModel, SigRegJepaModel
 from .utils import (
     atomic_torch_save,
     choose_device,
     configure_torch_runtime,
     ensure_dir,
+    load_torch_checkpoint,
     make_torch_generator,
     parse_int_list,
     save_json,
@@ -149,6 +150,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--sigreg-slices", type=int, default=1024)
     parser.add_argument("--sigreg-points", type=int, default=17)
     parser.add_argument("--sigreg-t-max", type=float, default=3.0)
+    parser.add_argument(
+        "--sigreg-on",
+        choices=["projection", "embedding", "both"],
+        default="projection",
+        help="Tensor regularized by SIGReg. 'embedding' targets the pooled encoder output used for downstream export.",
+    )
     parser.add_argument("--projector-dim", type=int, default=256)
     parser.add_argument("--projector-hidden-dim", type=int, default=1024)
     parser.add_argument("--projector-layers", type=int, default=3)
@@ -343,7 +350,7 @@ def _reduce_metric_summaries(
 
 
 def _load_init_checkpoint(model: torch.nn.Module, checkpoint_path: Path) -> dict[str, Any]:
-    payload = torch.load(checkpoint_path, map_location="cpu")
+    payload = load_torch_checkpoint(checkpoint_path, map_location="cpu")
     loaded_encoder = False
     loaded_predictor = False
     loaded_projector = False
@@ -414,6 +421,76 @@ def _init_wandb(
 
 def _count_params(module: torch.nn.Module) -> int:
     return sum(parameter.numel() for parameter in module.parameters())
+
+
+def _sigreg_jepa_loss_for_output(
+    output: dict[str, torch.Tensor],
+    *,
+    sigreg_on: str,
+    pred_coeff: float,
+    sigreg_coeff: float,
+    num_slices: int,
+    num_points: int,
+    t_max: float,
+    seed: int,
+    distributed: bool,
+) -> dict[str, torch.Tensor]:
+    if sigreg_on == "projection":
+        sigreg_embeddings = output["sigreg_projection"]
+        return sigreg_jepa_loss(
+            output["predicted_projection"],
+            output["target_projection"],
+            sigreg_embeddings,
+            pred_coeff=pred_coeff,
+            sigreg_coeff=sigreg_coeff,
+            num_slices=num_slices,
+            num_points=num_points,
+            t_max=t_max,
+            seed=seed,
+            distributed=distributed,
+        )
+
+    if sigreg_on == "embedding":
+        sigreg_embeddings = output["sigreg_embedding"]
+        return sigreg_jepa_loss(
+            output["predicted_projection"],
+            output["target_projection"],
+            sigreg_embeddings,
+            pred_coeff=pred_coeff,
+            sigreg_coeff=sigreg_coeff,
+            num_slices=num_slices,
+            num_points=num_points,
+            t_max=t_max,
+            seed=seed,
+            distributed=distributed,
+        )
+
+    if sigreg_on != "both":
+        raise ValueError(f"unsupported sigreg_on: {sigreg_on}")
+
+    loss_dict = sigreg_jepa_loss(
+        output["predicted_projection"],
+        output["target_projection"],
+        output["sigreg_projection"],
+        pred_coeff=pred_coeff,
+        sigreg_coeff=0.5 * sigreg_coeff,
+        num_slices=num_slices,
+        num_points=num_points,
+        t_max=t_max,
+        seed=seed,
+        distributed=distributed,
+    )
+    embedding_sigreg = sigreg_loss(
+        output["sigreg_embedding"],
+        num_slices=num_slices,
+        num_points=num_points,
+        t_max=t_max,
+        seed=seed + 1,
+        distributed=distributed,
+    )
+    loss_dict["loss"] = loss_dict["loss"] + 0.5 * float(sigreg_coeff) * embedding_sigreg
+    loss_dict["sigreg_loss"] = 0.5 * (loss_dict["sigreg_loss"] + embedding_sigreg.detach())
+    return loss_dict
 
 
 def main() -> None:
@@ -593,7 +670,7 @@ def main() -> None:
         if resume_path is not None:
             if not resume_path.exists():
                 raise FileNotFoundError(f"resume checkpoint not found: {resume_path}")
-            resume_payload = torch.load(resume_path, map_location="cpu")
+            resume_payload = load_torch_checkpoint(resume_path, map_location="cpu")
             if "encoder" not in resume_payload or "predictor" not in resume_payload:
                 raise ValueError(f"resume checkpoint must be a full training checkpoint: {resume_path}")
             model.encoder.load_state_dict(resume_payload["encoder"])
@@ -702,10 +779,9 @@ def main() -> None:
                 ):
                     if loss_type == "sigreg":
                         output = model(context, target, target_stop_grad=args.target_stop_grad)
-                        loss_dict = sigreg_jepa_loss(
-                            output["predicted_projection"],
-                            output["target_projection"],
-                            output["sigreg_projection"],
+                        loss_dict = _sigreg_jepa_loss_for_output(
+                            output,
+                            sigreg_on=args.sigreg_on,
                             pred_coeff=pred_coeff,
                             sigreg_coeff=sigreg_coeff,
                             num_slices=args.sigreg_slices,
@@ -765,10 +841,9 @@ def main() -> None:
                     ):
                         if loss_type == "sigreg":
                             output = model(context, target, target_stop_grad=args.target_stop_grad)
-                            loss_dict = sigreg_jepa_loss(
-                                output["predicted_projection"],
-                                output["target_projection"],
-                                output["sigreg_projection"],
+                            loss_dict = _sigreg_jepa_loss_for_output(
+                                output,
+                                sigreg_on=args.sigreg_on,
                                 pred_coeff=pred_coeff,
                                 sigreg_coeff=sigreg_coeff,
                                 num_slices=args.sigreg_slices,

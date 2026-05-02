@@ -259,3 +259,51 @@ def sigreg_jepa_loss(
         "repr_loss": pred_loss.detach(),
         "sigreg_loss": distribution_loss.detach(),
     }
+
+
+def feature_map_std(features: torch.Tensor) -> torch.Tensor:
+    if features.ndim != 4:
+        raise ValueError(f"feature_map_std expects (B, C, H, W), got {tuple(features.shape)}")
+    flattened = features.permute(0, 2, 3, 1).reshape(-1, features.shape[1]).float()
+    return torch.sqrt(flattened.var(dim=0, unbiased=False) + 1e-4).mean()
+
+
+def masked_latent_prediction_loss(
+    pred: torch.Tensor,
+    target: torch.Tensor,
+    mask: torch.Tensor,
+    *,
+    normalize_target: bool = True,
+    normalize_pred: bool = False,
+) -> dict[str, torch.Tensor]:
+    if pred.shape != target.shape:
+        raise ValueError(f"pred and target must have the same shape, got {tuple(pred.shape)} and {tuple(target.shape)}")
+    if pred.ndim != 4:
+        raise ValueError(f"masked_latent_prediction_loss expects feature maps shaped (B, C, H, W), got {tuple(pred.shape)}")
+    if mask.ndim != 4 or mask.shape[0] != pred.shape[0] or mask.shape[1] != 1:
+        raise ValueError(f"mask must be shaped (B, 1, H, W), got {tuple(mask.shape)}")
+
+    if tuple(mask.shape[-2:]) != tuple(pred.shape[-2:]):
+        mask = F.interpolate(mask.float(), size=pred.shape[-2:], mode="nearest")
+    else:
+        mask = mask.float()
+    mask = mask.clamp(0.0, 1.0)
+
+    pred_f = pred.float()
+    target_f = target.float()
+    if normalize_target:
+        target_f = F.layer_norm(target_f.permute(0, 2, 3, 1), (target_f.shape[1],)).permute(0, 3, 1, 2)
+    if normalize_pred:
+        pred_f = F.layer_norm(pred_f.permute(0, 2, 3, 1), (pred_f.shape[1],)).permute(0, 3, 1, 2)
+
+    squared_error = (pred_f - target_f).square().mean(dim=1, keepdim=True)
+    denom = mask.sum().clamp_min(1.0)
+    pred_loss = (squared_error * mask).sum() / denom
+    return {
+        "loss": pred_loss,
+        "pred_loss": pred_loss.detach(),
+        "repr_loss": pred_loss.detach(),
+        "pred_std": feature_map_std(pred).detach(),
+        "target_std": feature_map_std(target).detach(),
+        "mask_ratio": mask.mean().detach(),
+    }

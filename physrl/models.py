@@ -332,5 +332,81 @@ class SigRegJepaModel(nn.Module):
             "context_projection": context_projection,
             "target_projection": target_projection,
             "predicted_projection": predicted_projection,
+            "sigreg_embedding": torch.cat([context_embedding, target_embedding], dim=0),
             "sigreg_projection": torch.cat([context_projection, target_projection], dim=0),
+        }
+
+
+class VJepaModel(nn.Module):
+    def __init__(
+        self,
+        *,
+        in_chans: int = 11,
+        dims: list[int] | tuple[int, ...] = (32, 64, 128, 256, 256),
+        num_res_blocks: list[int] | tuple[int, ...] = (2, 2, 4, 8, 2),
+        num_frames: int = 16,
+        stem_patch_size: int = 1,
+        stem_kernel_size: int = 4,
+        drop_path_rate: float = 0.05,
+        layer_scale_init_value: float = 1e-6,
+    ) -> None:
+        super().__init__()
+        encoder_kwargs = {
+            "in_chans": in_chans,
+            "dims": list(dims),
+            "num_res_blocks": list(num_res_blocks),
+            "num_frames": num_frames,
+            "stem_patch_size": stem_patch_size,
+            "stem_kernel_size": stem_kernel_size,
+            "drop_path_rate": drop_path_rate,
+            "layer_scale_init_value": layer_scale_init_value,
+        }
+        self.encoder = ConvEncoder(**encoder_kwargs)
+        self.target_encoder = ConvEncoder(**encoder_kwargs)
+        self.target_encoder.load_state_dict(self.encoder.state_dict())
+        for parameter in self.target_encoder.parameters():
+            parameter.requires_grad_(False)
+
+        self.predictor = ConvPredictor([self.encoder.embed_dim])
+        self.mask_token = nn.Parameter(torch.zeros(1, int(in_chans), 1, 1, 1))
+
+    def train(self, mode: bool = True) -> "VJepaModel":
+        super().train(mode)
+        self.target_encoder.eval()
+        return self
+
+    def encode(self, x: torch.Tensor) -> torch.Tensor:
+        return self.encoder(x)
+
+    def _apply_input_mask(self, x: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        if mask.ndim != 4:
+            raise ValueError(f"mask must be shaped (B, 1, H, W), got {tuple(mask.shape)}")
+        if mask.shape[0] != x.shape[0] or mask.shape[1] != 1:
+            raise ValueError(f"mask batch/channel shape is incompatible with input: {tuple(mask.shape)} vs {tuple(x.shape)}")
+        pixel_mask = F.interpolate(mask.float(), size=x.shape[-2:], mode="nearest").to(dtype=torch.bool)
+        pixel_mask = pixel_mask.unsqueeze(2)
+        return torch.where(pixel_mask, self.mask_token.to(dtype=x.dtype), x)
+
+    @torch.no_grad()
+    def update_target_encoder(self, momentum: float) -> None:
+        momentum = float(momentum)
+        for online, target in zip(self.encoder.parameters(), self.target_encoder.parameters()):
+            target.data.mul_(momentum).add_(online.data, alpha=1.0 - momentum)
+
+    def forward(
+        self,
+        context: torch.Tensor,
+        target: torch.Tensor,
+        mask: torch.Tensor,
+    ) -> dict[str, torch.Tensor]:
+        masked_context = self._apply_input_mask(context, mask)
+        context_features = self.encoder(masked_context)
+        predicted_features = self.predictor(context_features)
+        with torch.no_grad():
+            target_features = self.target_encoder(target)
+        return {
+            "context_features": context_features,
+            "target_features": target_features,
+            "predicted_features": predicted_features,
+            "mask": mask,
         }

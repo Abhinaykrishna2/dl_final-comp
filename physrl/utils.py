@@ -178,6 +178,13 @@ def atomic_torch_save(path: str | Path, payload: Any) -> None:
             tmp_path.unlink(missing_ok=True)
 
 
+def load_torch_checkpoint(path: str | Path, *, map_location: str | torch.device = "cpu") -> Any:
+    try:
+        return torch.load(path, map_location=map_location, weights_only=False)
+    except TypeError:
+        return torch.load(path, map_location=map_location)
+
+
 def load_json(path: str | Path) -> dict[str, Any]:
     return json.loads(Path(path).read_text(encoding="utf-8"))
 

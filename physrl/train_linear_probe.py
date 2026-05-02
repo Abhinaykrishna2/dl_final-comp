@@ -16,6 +16,7 @@ from .utils import (
     ensure_dir,
     flatten_metrics,
     init_wandb_run,
+    load_torch_checkpoint,
     log_wandb_artifact,
     make_torch_generator,
     mse_report,
@@ -143,7 +144,7 @@ def main() -> None:
     if resume_path is not None:
         if not resume_path.exists():
             raise FileNotFoundError(f"resume checkpoint not found: {resume_path}")
-        payload = torch.load(resume_path, map_location="cpu")
+        payload = load_torch_checkpoint(resume_path, map_location="cpu")
         model.load_state_dict(payload["state_dict"])
         optimizer.load_state_dict(payload["optimizer"])
         scheduler.load_state_dict(payload["scheduler"])

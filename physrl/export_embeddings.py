@@ -13,6 +13,7 @@ from .utils import (
     choose_device,
     configure_torch_runtime,
     ensure_dir,
+    load_torch_checkpoint,
     make_torch_generator,
     parse_int_list,
     pool_features,
@@ -66,7 +67,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def _load_encoder(checkpoint_path: Path, device: torch.device) -> tuple[ConvEncoder, dict]:
-    payload = torch.load(checkpoint_path, map_location="cpu")
+    payload = load_torch_checkpoint(checkpoint_path, map_location="cpu")
     config = payload["config"]
     dims = parse_int_list(config["dims"]) if isinstance(config["dims"], str) else list(config["dims"])
     blocks = (
