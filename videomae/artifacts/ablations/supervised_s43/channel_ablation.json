@@ -1,0 +1,156 @@
+{
+  "baseline": {
+    "test_normalized_alpha_mse": 0.020055105909705162,
+    "test_normalized_mean_mse": 0.10782281309366226,
+    "test_normalized_zeta_mse": 0.1955905258655548,
+    "valid_normalized_alpha_mse": 0.01772872544825077,
+    "valid_normalized_mean_mse": 0.10875051468610764,
+    "valid_normalized_zeta_mse": 0.19977229833602905
+  },
+  "channel_names": [
+    "concentration",
+    "vel_x",
+    "vel_y",
+    "orient_xx",
+    "orient_xy",
+    "orient_yx",
+    "orient_yy",
+    "strain_xx",
+    "strain_xy",
+    "strain_yx",
+    "strain_yy"
+  ],
+  "per_channel": [
+    {
+      "channel": -1,
+      "channel_name": "baseline",
+      "test_normalized_alpha_mse": 0.020055105909705162,
+      "test_normalized_mean_mse": 0.10782281309366226,
+      "test_normalized_zeta_mse": 0.1955905258655548,
+      "valid_normalized_alpha_mse": 0.01772872544825077,
+      "valid_normalized_mean_mse": 0.10875051468610764,
+      "valid_normalized_zeta_mse": 0.19977229833602905
+    },
+    {
+      "channel": 0,
+      "channel_name": "concentration",
+      "test_mse_delta_vs_baseline": 0.09837750345468521,
+      "test_normalized_alpha_mse": 0.08310011774301529,
+      "test_normalized_mean_mse": 0.20620031654834747,
+      "test_normalized_zeta_mse": 0.32930052280426025,
+      "valid_normalized_alpha_mse": 0.04444548860192299,
+      "valid_normalized_mean_mse": 0.1183771938085556,
+      "valid_normalized_zeta_mse": 0.19230890274047852
+    },
+    {
+      "channel": 1,
+      "channel_name": "vel_x",
+      "test_mse_delta_vs_baseline": 0.01197117567062378,
+      "test_normalized_alpha_mse": 0.024536145851016045,
+      "test_normalized_mean_mse": 0.11979398876428604,
+      "test_normalized_zeta_mse": 0.2150518298149109,
+      "valid_normalized_alpha_mse": 0.02657380886375904,
+      "valid_normalized_mean_mse": 0.1467369794845581,
+      "valid_normalized_zeta_mse": 0.2669001519680023
+    },
+    {
+      "channel": 2,
+      "channel_name": "vel_y",
+      "test_mse_delta_vs_baseline": 0.0007815584540367126,
+      "test_normalized_alpha_mse": 0.019562751054763794,
+      "test_normalized_mean_mse": 0.10860437154769897,
+      "test_normalized_zeta_mse": 0.19764599204063416,
+      "valid_normalized_alpha_mse": 0.01869940757751465,
+      "valid_normalized_mean_mse": 0.13030120730400085,
+      "valid_normalized_zeta_mse": 0.24190302193164825
+    },
+    {
+      "channel": 3,
+      "channel_name": "orient_xx",
+      "test_mse_delta_vs_baseline": 0.0428791269659996,
+      "test_normalized_alpha_mse": 0.05206692963838577,
+      "test_normalized_mean_mse": 0.15070194005966187,
+      "test_normalized_zeta_mse": 0.24933694303035736,
+      "valid_normalized_alpha_mse": 0.031255532056093216,
+      "valid_normalized_mean_mse": 0.1203070729970932,
+      "valid_normalized_zeta_mse": 0.20935861766338348
+    },
+    {
+      "channel": 4,
+      "channel_name": "orient_xy",
+      "test_mse_delta_vs_baseline": 0.05450019985437393,
+      "test_normalized_alpha_mse": 0.02189159020781517,
+      "test_normalized_mean_mse": 0.1623230129480362,
+      "test_normalized_zeta_mse": 0.3027544319629669,
+      "valid_normalized_alpha_mse": 0.02161410264670849,
+      "valid_normalized_mean_mse": 0.1671334207057953,
+      "valid_normalized_zeta_mse": 0.31265273690223694
+    },
+    {
+      "channel": 5,
+      "channel_name": "orient_yx",
+      "test_mse_delta_vs_baseline": 0.02763170748949051,
+      "test_normalized_alpha_mse": 0.02615181729197502,
+      "test_normalized_mean_mse": 0.13545452058315277,
+      "test_normalized_zeta_mse": 0.24475723505020142,
+      "valid_normalized_alpha_mse": 0.01188563834875822,
+      "valid_normalized_mean_mse": 0.11607236415147781,
+      "valid_normalized_zeta_mse": 0.22025908529758453
+    },
+    {
+      "channel": 6,
+      "channel_name": "orient_yy",
+      "test_mse_delta_vs_baseline": 0.07074732333421707,
+      "test_normalized_alpha_mse": 0.0457020066678524,
+      "test_normalized_mean_mse": 0.17857013642787933,
+      "test_normalized_zeta_mse": 0.31143826246261597,
+      "valid_normalized_alpha_mse": 0.031758446246385574,
+      "valid_normalized_mean_mse": 0.128061905503273,
+      "valid_normalized_zeta_mse": 0.22436535358428955
+    },
+    {
+      "channel": 7,
+      "channel_name": "strain_xx",
+      "test_mse_delta_vs_baseline": -0.0025312229990959167,
+      "test_normalized_alpha_mse": 0.015275541692972183,
+      "test_normalized_mean_mse": 0.10529159009456635,
+      "test_normalized_zeta_mse": 0.1953076422214508,
+      "valid_normalized_alpha_mse": 0.022359641268849373,
+      "valid_normalized_mean_mse": 0.1105002835392952,
+      "valid_normalized_zeta_mse": 0.19864092767238617
+    },
+    {
+      "channel": 8,
+      "channel_name": "strain_xy",
+      "test_mse_delta_vs_baseline": -0.005025915801525116,
+      "test_normalized_alpha_mse": 0.026219168677926064,
+      "test_normalized_mean_mse": 0.10279689729213715,
+      "test_normalized_zeta_mse": 0.17937462031841278,
+      "valid_normalized_alpha_mse": 0.02346912957727909,
+      "valid_normalized_mean_mse": 0.1122792512178421,
+      "valid_normalized_zeta_mse": 0.20108936727046967
+    },
+    {
+      "channel": 9,
+      "channel_name": "strain_yx",
+      "test_mse_delta_vs_baseline": 0.000877775251865387,
+      "test_normalized_alpha_mse": 0.025693770498037338,
+      "test_normalized_mean_mse": 0.10870058834552765,
+      "test_normalized_zeta_mse": 0.19170740246772766,
+      "valid_normalized_alpha_mse": 0.026199601590633392,
+      "valid_normalized_mean_mse": 0.1093711107969284,
+      "valid_normalized_zeta_mse": 0.19254261255264282
+    },
+    {
+      "channel": 10,
+      "channel_name": "strain_yy",
+      "test_mse_delta_vs_baseline": -0.008278757333755493,
+      "test_normalized_alpha_mse": 0.01826588436961174,
+      "test_normalized_mean_mse": 0.09954405575990677,
+      "test_normalized_zeta_mse": 0.1808222234249115,
+      "valid_normalized_alpha_mse": 0.030164198949933052,
+      "valid_normalized_mean_mse": 0.12454116344451904,
+      "valid_normalized_zeta_mse": 0.21891812980175018
+    }
+  ]
+}

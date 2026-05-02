@@ -1,0 +1,6 @@
+{
+  "checkpoint": "videomae/artifacts/supervised_s43/encoder_best.pt",
+  "context_frames": 16,
+  "in_chans": 11,
+  "label": "supervised_s43"
+}

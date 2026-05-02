@@ -213,8 +213,8 @@ context only.
 \caption{Active matter parameter prediction. Z-scored MSE (lower is better) on
 the test split with a frozen encoder, evaluated with both a single linear probe
 and $k$-NN regression. Effective rank and Epps--Pulley distance are computed on
-the validation embedding set. Best per column among \emph{our} entries in
-\textbf{bold}.}
+the validation embedding set. For configurations with two seeds we report
+mean$\pm$std. Best per column among \emph{our} entries in \textbf{bold}.}
 \label{tab:main-results}
 \small
 \begin{tabular}{lrrrrrrr}
@@ -222,12 +222,11 @@ the validation embedding set. Best per column among \emph{our} entries in
 \textbf{Encoder} & \textbf{Params (M)} & \textbf{Linear} & \textbf{Linear $\alpha$} & \textbf{Linear $\zeta$} & \textbf{kNN} & \textbf{Eff.\ rank} & \textbf{Epps--Pulley} \\
 \midrule
 \textit{Ours:} & & & & & & & \\
-\quad Supervised (s$=$42)                  & 7.72 & 0.106 & 0.033 & 0.178 & 0.123 & 3.60 & 0.086 \\
-\quad Supervised (s$=$43)                  & 7.72 & \textbf{0.098} & \textbf{0.033} & \textbf{0.164} & \textbf{0.078} & 3.32 & 0.088 \\
-\quad VideoMAE / SimMIM, mask$=0.60$       & 8.07 & 0.331 & 0.117 & 0.546 & 0.610 & 7.65 & 0.042 \\
-\quad VideoMAE / SimMIM, mask$=0.75$       & 8.07 & 0.299 & 0.075 & 0.522 & 0.672 & \textbf{8.87} & \textbf{0.039} \\
-\quad VideoMAE / SimMIM, mask$=0.90$       & 8.07 & 0.253 & 0.111 & 0.395 & 0.465 & 7.75 & 0.042 \\
-\quad SIGReg-JEPA (Person A)               & 7.72 & TBD   & TBD   & TBD   & TBD   & TBD            & TBD            \\
+\quad Supervised, 2 seeds (s$=$42, s$=$43)            & 7.72 & \textbf{0.102$\pm$0.005} & \textbf{0.033$\pm$0.000} & \textbf{0.171$\pm$0.010} & \textbf{0.100$\pm$0.032} & 3.46 & 0.087 \\
+\quad VideoMAE / SimMIM, mask$=0.60$, 2 seeds          & 8.07 & 0.307$\pm$0.034 & 0.114$\pm$0.004 & 0.499$\pm$0.065 & 0.569$\pm$0.058 & 8.00 & 0.042 \\
+\quad VideoMAE / SimMIM, mask$=0.75$ (1 seed)          & 8.07 & 0.299 & 0.075 & 0.522 & 0.672 & \textbf{8.87} & \textbf{0.039} \\
+\quad VideoMAE / SimMIM, mask$=0.90$ (1 seed)          & 8.07 & 0.253 & 0.111 & 0.395 & 0.465 & 7.75 & 0.042 \\
+\quad SIGReg-JEPA (Person A)                            & 7.72 & TBD   & TBD   & TBD   & TBD   & TBD            & TBD            \\
 \midrule
 \multicolumn{8}{l}{\emph{External references (Qu et al., attentive-probe FT for 100 epochs -- different protocol):}} \\
 \quad JEPA, ConvNeXt                        & ${\sim}3.3$ & 0.079 & --- & --- & --- & --- & --- \\
@@ -260,13 +259,18 @@ Crucially, even the best VideoMAE configuration (mask$=0.90$) is still
 $\sim$$2.5{\times}$ worse than the supervised baseline -- the SSL paradigm
 itself is the limiting factor, not the mask ratio.
 
-\paragraph{(3) Seed stability.} Two supervised seeds (s$=42$, s$=43$) give
-linear MSE $0.106$ and $0.098$ respectively (mean $0.102$, std $\sim$$0.005$),
-and CKA $0.97$ between them: the supervised baseline is highly reproducible.
-The VideoMAE encoders across mask ratios have CKA $\geq 0.97$ with each other,
-but only $0.72$--$0.75$ with the supervised encoder, confirming that the SSL
-objective is the dominant representation-shaping variable -- not the seed and
-not the mask ratio.
+\paragraph{(3) Seed stability.} The supervised baseline is highly reproducible
+(linear MSE $0.106$ and $0.098$ across two seeds, std $\sim$$0.005$, CKA
+$0.97$). The VideoMAE-mask$0.60$ run is also stable across seeds (linear MSE
+$0.331$ and $0.282$; std $\sim$$0.024$; CKA $0.96$), with the supervised
+baseline showing $\sim$$5{\times}$ tighter seed-to-seed variation than VideoMAE
+-- another consequence of supervised collapsing onto a low-rank
+target-aligned subspace which is intrinsically less degenerate. The CKA
+matrix (Fig.~\ref{fig:cka}) shows the four VideoMAE encoders cluster at CKA
+$0.94$--$0.98$ regardless of mask ratio or seed, the two supervised seeds at
+CKA $0.97$, and supervised-vs.-VideoMAE at CKA $0.70$--$0.75$ -- the SSL
+objective is the dominant representation-shaping variable, while seed and
+mask-ratio are secondary.
 
 \section{Analysis}
 \label{sec:analysis}
@@ -333,16 +337,21 @@ fluid simulation; no human or animal data are involved.
 
 \paragraph{Compute accounting.} All experiments ran on 2$\times$ NVIDIA B200
 180\,GB GPUs (PyTorch 2.11.0+cu128, BF16 autocast) on a single rented node.
-The VideoMAE main run trained for 25 epochs (${\sim}172$\,s/epoch on a single
-B200, ${\sim}1.2$\,h wall-clock); the supervised baseline trained for 30 epochs
-(${\sim}90$\,s/epoch, ${\sim}45$\,min); the mask$=0.75$ ablation warm-started
-from the main encoder and trained for 12 additional epochs (${\sim}35$\,min).
-Eval (export, sweep, kNN, analysis) added ${\sim}20$\,min per encoder. Total
-${\sim}3.5$ GPU-hours of training plus ${\sim}1$ GPU-hour of evaluation per
-GPU, well within budget. Peak VRAM during training was ${\sim}71$\,GB on GPU 0
-(VideoMAE) and ${\sim}51$\,GB on GPU 1 (supervised) at batch size $64$. We did
-hit the OOM killer once with $12+8$ DataLoader workers and a concurrent
-dataset-hash computation; reducing to $6+4$ workers resolved it.
+Per training run: VideoMAE main 25 epochs at ${\sim}172$\,s/epoch
+(${\sim}1.2$\,h); supervised 30 epochs at ${\sim}90$\,s/epoch (${\sim}45$\,min);
+mask$=0.75$ and mask$=0.90$ ablations 12 epochs warm-started
+(${\sim}35$\,min each); a second seed for both VideoMAE-mask$0.60$ and
+supervised. Per encoder: linear-probe sweep over $36$ trials and kNN sweep
+over $72$ trials (${\sim}10$\,min each), the channel-importance ablation
+($11$ channels $\times$ $3$ splits export plus probe per channel,
+${\sim}5$\,min), and the frame-budget ablation ($4$ frame budgets $\times$ 3
+splits, ${\sim}3$\,min). Total compute: ${\sim}10$ GPU-hours of training plus
+${\sim}5$ GPU-hours of evaluation, well within the project budget. Peak VRAM
+during training was ${\sim}71$\,GB on the VideoMAE GPU and ${\sim}51$\,GB on
+the supervised GPU at batch size $64$. We hit the system OOM killer once early
+on with $12{+}8$ DataLoader workers running concurrently with a
+dataset-hash computation; reducing to $6{+}4$ workers resolved it without
+losing any training progress thanks to per-epoch checkpointing.
 
 \section*{Statement of Contributions}
 

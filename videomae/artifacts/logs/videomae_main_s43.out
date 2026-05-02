@@ -3,3 +3,48 @@ wandb: W&B syncing is set to `offline` in this directory. Run `wandb online` or 
 wandb: Run data is saved locally in videomae/artifacts/videomae_main_s43/wandb/offline-run-20260502_002730-5ilzeagt
 {'epoch': 1, 'seconds': 188.36, 'train_loss': 0.985431652079413, 'valid_loss': 0.9657185673713684, 'lr': 7.507500000000004e-05, 'world_size': 1}
 {'epoch': 2, 'seconds': 171.16, 'train_loss': 0.9603566483708171, 'valid_loss': 0.9383302927017212, 'lr': 0.00015, 'world_size': 1}
+{'epoch': 3, 'seconds': 170.84, 'train_loss': 0.9418624880303552, 'valid_loss': 0.9320112466812134, 'lr': 0.00014930843149319755, 'world_size': 1}
+{'epoch': 4, 'seconds': 170.74, 'train_loss': 0.9384987172832737, 'valid_loss': 0.9305176138877869, 'lr': 0.0001472466085855741, 'world_size': 1}
+{'epoch': 5, 'seconds': 173.4, 'train_loss': 0.9375566559436518, 'valid_loss': 0.9294645190238953, 'lr': 0.00014385293913677993, 'world_size': 1}
+{'epoch': 6, 'seconds': 170.98, 'train_loss': 0.9292304034769793, 'valid_loss': 0.8978497982025146, 'lr': 0.0001391906407875768, 'world_size': 1}
+{'epoch': 7, 'seconds': 172.24, 'train_loss': 0.8775039414513163, 'valid_loss': 0.8424193263053894, 'lr': 0.00013334656333480318, 'world_size': 1}
+{'epoch': 8, 'seconds': 170.98, 'train_loss': 0.8269584649259394, 'valid_loss': 0.799409806728363, 'lr': 0.00012642957088398497, 'world_size': 1}
+{'epoch': 9, 'seconds': 171.58, 'train_loss': 0.7851025463182689, 'valid_loss': 0.7637447714805603, 'lr': 0.00011856851391702893, 'world_size': 1}
+{'epoch': 10, 'seconds': 172.08, 'train_loss': 0.7564294734868137, 'valid_loss': 0.7400280237197876, 'lr': 0.00010990982905153813, 'world_size': 1}
+{'epoch': 11, 'seconds': 171.28, 'train_loss': 0.7333749830774414, 'valid_loss': 0.706714391708374, 'lr': 0.00010061481120369579, 'world_size': 1}
+{'epoch': 12, 'seconds': 171.18, 'train_loss': 0.6911600253592322, 'valid_loss': 0.6653956174850464, 'lr': 9.085660896915817e-05, 'world_size': 1}
+{'epoch': 13, 'seconds': 171.3, 'train_loss': 0.6472005682383781, 'valid_loss': 0.6162204146385193, 'lr': 8.081699919232691e-05, 'world_size': 1}
+{'epoch': 14, 'seconds': 173.31, 'train_loss': 0.6150044274742985, 'valid_loss': 0.6018987894058228, 'lr': 7.068300080767324e-05, 'world_size': 1}
+{'epoch': 15, 'seconds': 171.2, 'train_loss': 0.5917612123799014, 'valid_loss': 0.5767136216163635, 'lr': 6.0643391030842006e-05, 'world_size': 1}
+{'epoch': 16, 'seconds': 170.8, 'train_loss': 0.5745461889056416, 'valid_loss': 0.5575412511825562, 'lr': 5.0885188796304346e-05, 'world_size': 1}
+{'epoch': 17, 'seconds': 172.62, 'train_loss': 0.5614117668304609, 'valid_loss': 0.5442953705787659, 'lr': 4.159017094846201e-05, 'world_size': 1}
+{'epoch': 18, 'seconds': 172.7, 'train_loss': 0.5510585346676055, 'valid_loss': 0.5469456911087036, 'lr': 3.2931486082971224e-05, 'world_size': 1}
+{'epoch': 19, 'seconds': 171.21, 'train_loss': 0.5436360689468714, 'valid_loss': 0.5424333810806274, 'lr': 2.5070429116015042e-05, 'world_size': 1}
+{'epoch': 20, 'seconds': 171.59, 'train_loss': 0.5391198972706155, 'valid_loss': 0.5364994406700134, 'lr': 1.8153436665196915e-05, 'world_size': 1}
+{'epoch': 21, 'seconds': 172.27, 'train_loss': 0.5347519856717163, 'valid_loss': 0.5280762314796448, 'lr': 1.230935921242332e-05, 'world_size': 1}
+{'epoch': 22, 'seconds': 171.13, 'train_loss': 0.5312776991196009, 'valid_loss': 0.5250654816627502, 'lr': 7.647060863220201e-06, 'world_size': 1}
+{'epoch': 23, 'seconds': 171.54, 'train_loss': 0.5299131837138882, 'valid_loss': 0.5312745571136475, 'lr': 4.253391414425948e-06, 'world_size': 1}
+{'epoch': 24, 'seconds': 171.16, 'train_loss': 0.528470047603954, 'valid_loss': 0.5227781534194946, 'lr': 2.1915685068024504e-06, 'world_size': 1}
+{'epoch': 25, 'seconds': 170.81, 'train_loss': 0.5280645876839047, 'valid_loss': 0.5145728588104248, 'lr': 1.5e-06, 'world_size': 1}
+wandb: 
+wandb: Run history:
+wandb:      epoch ▁▁▂▂▂▂▃▃▃▄▄▄▅▅▅▅▆▆▆▇▇▇▇██
+wandb:         lr ▄████▇▇▇▇▆▆▅▅▄▄▃▃▂▂▂▂▁▁▁▁
+wandb:    seconds █▁▁▁▂▁▂▁▁▂▁▁▁▂▁▁▂▂▁▁▂▁▁▁▁
+wandb: train_loss ██▇▇▇▇▆▆▅▄▄▃▃▂▂▂▂▁▁▁▁▁▁▁▁
+wandb: valid_loss ██▇▇▇▇▆▅▅▄▄▃▃▂▂▂▁▂▁▁▁▁▁▁▁
+wandb: world_size ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb: 
+wandb: Run summary:
+wandb: best_valid_loss 0.51457
+wandb:           epoch 25
+wandb:      last_epoch 25
+wandb:              lr 0.0
+wandb:         seconds 170.81
+wandb:      train_loss 0.52806
+wandb:      valid_loss 0.51457
+wandb:      world_size 1
+wandb: 
+wandb: You can sync this run to the cloud by running:
+wandb: wandb sync videomae/artifacts/videomae_main_s43/wandb/offline-run-20260502_002730-5ilzeagt
+wandb: Find logs at: videomae/artifacts/videomae_main_s43/wandb/offline-run-20260502_002730-5ilzeagt/logs
