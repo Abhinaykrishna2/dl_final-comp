@@ -3,6 +3,7 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.utils.checkpoint import checkpoint
 
 try:
     from timm.layers import DropPath
@@ -410,3 +411,260 @@ class VJepaModel(nn.Module):
             "predicted_features": predicted_features,
             "mask": mask,
         }
+
+
+class CNextLayerNorm(nn.Module):
+    def __init__(self, normalized_shape: int, eps: float = 1e-6, data_format: str = "channels_last") -> None:
+        super().__init__()
+        self.weight = nn.Parameter(torch.ones(normalized_shape))
+        self.bias = nn.Parameter(torch.zeros(normalized_shape))
+        self.eps = eps
+        self.data_format = data_format
+        if data_format not in {"channels_last", "channels_first"}:
+            raise ValueError(f"unsupported data_format: {data_format}")
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if self.data_format == "channels_last":
+            return F.layer_norm(x, (x.shape[-1],), self.weight, self.bias, self.eps)
+        shape = (1, -1) + (1,) * (x.ndim - 2)
+        return F.normalize(x, p=2, dim=1, eps=self.eps) * self.weight.view(*shape)
+
+
+class CNextBlock(nn.Module):
+    def __init__(
+        self,
+        dim: int,
+        *,
+        drop_path: float = 0.0,
+        layer_scale_init_value: float = 1e-6,
+    ) -> None:
+        super().__init__()
+        self.depthwise = nn.Conv2d(dim, dim, kernel_size=7, padding=3, groups=dim)
+        self.norm = CNextLayerNorm(dim, data_format="channels_last")
+        self.fc1 = nn.Linear(dim, 4 * dim)
+        self.act = nn.GELU()
+        self.fc2 = nn.Linear(4 * dim, dim)
+        self.gamma = (
+            nn.Parameter(layer_scale_init_value * torch.ones(dim), requires_grad=True)
+            if layer_scale_init_value > 0
+            else None
+        )
+        self.drop_path = DropPath(drop_path) if drop_path > 0 else nn.Identity()
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        residual = x
+        x = self.depthwise(x)
+        x = x.permute(0, 2, 3, 1)
+        x = self.norm(x)
+        x = self.fc1(x)
+        x = self.act(x)
+        x = self.fc2(x)
+        if self.gamma is not None:
+            x = self.gamma * x
+        x = x.permute(0, 3, 1, 2)
+        return residual + self.drop_path(x)
+
+
+class CNextStage(nn.Module):
+    def __init__(
+        self,
+        dim_in: int,
+        dim_out: int,
+        *,
+        num_blocks: int,
+        resample: str,
+        skip_project: bool = False,
+        drop_path_rates: list[float] | tuple[float, ...] = (),
+        layer_scale_init_value: float = 1e-6,
+    ) -> None:
+        super().__init__()
+        if resample not in {"down", "up", "same"}:
+            raise ValueError(f"unsupported resample mode: {resample}")
+        self.skip_project = (
+            nn.Conv2d(2 * dim_in, dim_in, kernel_size=1)
+            if skip_project
+            else nn.Identity()
+        )
+        rates = list(drop_path_rates) or [0.0] * int(num_blocks)
+        self.blocks = nn.Sequential(
+            *[
+                CNextBlock(
+                    dim_in,
+                    drop_path=float(rates[idx]),
+                    layer_scale_init_value=layer_scale_init_value,
+                )
+                for idx in range(int(num_blocks))
+            ]
+        )
+        if resample == "down":
+            self.resample = nn.Sequential(
+                CNextLayerNorm(dim_in, data_format="channels_first"),
+                nn.Conv2d(dim_in, dim_out, kernel_size=2, stride=2),
+            )
+        elif resample == "up":
+            self.resample = nn.Sequential(
+                CNextLayerNorm(dim_in, data_format="channels_first"),
+                nn.ConvTranspose2d(dim_in, dim_out, kernel_size=2, stride=2),
+            )
+        else:
+            self.resample = nn.Identity()
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.skip_project(x)
+        x = self.blocks(x)
+        return self.resample(x)
+
+
+class CNextUNetForecaster(nn.Module):
+    """UNetConvNext-style active_matter forecaster trained from scratch."""
+
+    def __init__(
+        self,
+        *,
+        field_channels: int = 11,
+        context_frames: int = 4,
+        target_frames: int = 1,
+        init_features: int = 42,
+        stages: int = 4,
+        blocks_per_stage: int = 2,
+        blocks_at_neck: int = 1,
+        drop_path_rate: float = 0.0,
+        layer_scale_init_value: float = 1e-6,
+        gradient_checkpointing: bool = False,
+    ) -> None:
+        super().__init__()
+        if context_frames < 1:
+            raise ValueError("context_frames must be >= 1")
+        if target_frames < 1:
+            raise ValueError("target_frames must be >= 1")
+        if stages < 1:
+            raise ValueError("stages must be >= 1")
+
+        self.field_channels = int(field_channels)
+        self.context_frames = int(context_frames)
+        self.target_frames = int(target_frames)
+        self.init_features = int(init_features)
+        self.stages = int(stages)
+        self.blocks_per_stage = int(blocks_per_stage)
+        self.blocks_at_neck = int(blocks_at_neck)
+        self.embed_dim = int(init_features) * (2 ** int(stages))
+        self.gradient_checkpointing = bool(gradient_checkpointing)
+
+        encoder_dims = [int(init_features) * (2**idx) for idx in range(int(stages) + 1)]
+        decoder_dims = list(reversed(encoder_dims))
+        total_blocks = int(stages) * int(blocks_per_stage) * 2 + int(blocks_at_neck)
+        drop_rates = torch.linspace(0, float(drop_path_rate), total_blocks).tolist()
+        offset = 0
+
+        self.in_proj = nn.Conv2d(self.field_channels * self.context_frames, int(init_features), kernel_size=3, padding=1)
+        self.encoder = nn.ModuleList()
+        for idx in range(int(stages)):
+            rates = drop_rates[offset : offset + int(blocks_per_stage)]
+            offset += int(blocks_per_stage)
+            self.encoder.append(
+                CNextStage(
+                    encoder_dims[idx],
+                    encoder_dims[idx + 1],
+                    num_blocks=int(blocks_per_stage),
+                    resample="down",
+                    drop_path_rates=rates,
+                    layer_scale_init_value=layer_scale_init_value,
+                )
+            )
+
+        neck_rates = drop_rates[offset : offset + int(blocks_at_neck)]
+        offset += int(blocks_at_neck)
+        self.neck = CNextStage(
+            encoder_dims[-1],
+            encoder_dims[-1],
+            num_blocks=int(blocks_at_neck),
+            resample="same",
+            drop_path_rates=neck_rates,
+            layer_scale_init_value=layer_scale_init_value,
+        )
+
+        self.decoder = nn.ModuleList()
+        for idx in range(int(stages)):
+            rates = drop_rates[offset : offset + int(blocks_per_stage)]
+            offset += int(blocks_per_stage)
+            self.decoder.append(
+                CNextStage(
+                    decoder_dims[idx],
+                    decoder_dims[idx + 1],
+                    num_blocks=int(blocks_per_stage),
+                    resample="up",
+                    skip_project=idx > 0,
+                    drop_path_rates=rates,
+                    layer_scale_init_value=layer_scale_init_value,
+                )
+            )
+
+        self.out_proj = nn.Conv2d(int(init_features), self.field_channels * self.target_frames, kernel_size=3, padding=1)
+
+    @staticmethod
+    def _stack_time(x: torch.Tensor) -> torch.Tensor:
+        if x.ndim != 5:
+            raise ValueError(f"expected input shaped (B, C, T, H, W), got {tuple(x.shape)}")
+        return x.permute(0, 2, 1, 3, 4).reshape(x.shape[0], x.shape[1] * x.shape[2], x.shape[3], x.shape[4])
+
+    def _unstack_time(self, x: torch.Tensor) -> torch.Tensor:
+        if x.ndim != 4:
+            raise ValueError(f"expected output shaped (B, C*T, H, W), got {tuple(x.shape)}")
+        return x.view(x.shape[0], self.target_frames, self.field_channels, x.shape[2], x.shape[3]).permute(0, 2, 1, 3, 4)
+
+    def encode_context(self, context: torch.Tensor) -> torch.Tensor:
+        if context.shape[1] != self.field_channels or context.shape[2] != self.context_frames:
+            raise ValueError(
+                f"context must be shaped (B, {self.field_channels}, {self.context_frames}, H, W), "
+                f"got {tuple(context.shape)}"
+            )
+        x = self.in_proj(self._stack_time(context))
+        for stage in self.encoder:
+            x = self.optional_checkpointing(stage, x)
+        return self.neck(x)
+
+    def optional_checkpointing(self, layer: nn.Module, *inputs: torch.Tensor) -> torch.Tensor:
+        if self.gradient_checkpointing:
+            return checkpoint(layer, *inputs, use_reentrant=False)
+        return layer(*inputs)
+
+    def decode_features(self, features: torch.Tensor, skips: list[torch.Tensor]) -> torch.Tensor:
+        x = features
+        for idx, stage in enumerate(self.decoder):
+            if idx > 0:
+                x = torch.cat([x, skips[-idx]], dim=1)
+            x = stage(x)
+        return self.out_proj(x)
+
+    def forward(self, context: torch.Tensor) -> torch.Tensor:
+        if context.shape[1] != self.field_channels or context.shape[2] != self.context_frames:
+            raise ValueError(
+                f"context must be shaped (B, {self.field_channels}, {self.context_frames}, H, W), "
+                f"got {tuple(context.shape)}"
+            )
+        x = self.in_proj(self._stack_time(context))
+        skips: list[torch.Tensor] = []
+        for stage in self.encoder:
+            skips.append(x)
+            x = self.optional_checkpointing(stage, x)
+        x = self.neck(x)
+        x = self.decode_features(x, skips)
+        return self._unstack_time(x)
+
+    def encode_clip_windows(self, clip: torch.Tensor, *, window_frames: int | None = None, stride: int = 1) -> torch.Tensor:
+        window_frames = self.context_frames if window_frames is None else int(window_frames)
+        if window_frames != self.context_frames:
+            raise ValueError(f"window_frames must match context_frames={self.context_frames}")
+        if clip.ndim != 5:
+            raise ValueError(f"clip must be shaped (B, C, T, H, W), got {tuple(clip.shape)}")
+        if clip.shape[1] != self.field_channels:
+            raise ValueError(f"clip channel count must be {self.field_channels}, got {clip.shape[1]}")
+        if clip.shape[2] < self.context_frames:
+            raise ValueError(f"clip has {clip.shape[2]} frames, needs at least {self.context_frames}")
+        stride = max(1, int(stride))
+        windows = []
+        for start in range(0, int(clip.shape[2]) - self.context_frames + 1, stride):
+            windows.append(clip[:, :, start : start + self.context_frames])
+        stacked = torch.cat(windows, dim=0)
+        features = self.encode_context(stacked)
+        return features.view(len(windows), clip.shape[0], features.shape[1], features.shape[2], features.shape[3]).mean(dim=0)
