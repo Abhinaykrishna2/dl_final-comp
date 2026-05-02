@@ -19,7 +19,6 @@
 \citation{ohana2025well}
 \citation{balestriero2026lejepa}
 \citation{tong2022videomae,xie2022simmim}
-\citation{qu2026spatiotemporal}
 \citation{qu2026spatiotemporal,balestriero2023cookbook}
 \citation{ohana2025well}
 \citation{qu2026spatiotemporal}
@@ -41,17 +40,16 @@
 \newlabel{sec:method-pixel}{{3.2}{2}{Pixel reconstruction: VideoMAE/SimMIM hybrid (Person B)}{subsection.3.2}{}}
 \citation{qu2026spatiotemporal}
 \citation{qu2026spatiotemporal}
-\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Active matter parameter prediction. Z-scored MSE (lower is better) on the test split with a frozen encoder, evaluated with both a single linear probe and $k$-NN regression. Effective rank and Epps--Pulley distance are computed on the validation embedding set. We report mean$\pm $std across seeds where available. Best per column among \emph  {our} entries in \textbf  {bold}.\relax }}{3}{table.caption.1}\protected@file@percent }
-\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
-\newlabel{tab:main-results}{{1}{3}{Active matter parameter prediction. Z-scored MSE (lower is better) on the test split with a frozen encoder, evaluated with both a single linear probe and $k$-NN regression. Effective rank and Epps--Pulley distance are computed on the validation embedding set. We report mean$\pm $std across seeds where available. Best per column among \emph {our} entries in \textbf {bold}.\relax }{table.caption.1}{}}
+\citation{xie2022simmim}
 \@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Supervised baseline (Person B)}{3}{subsection.3.3}\protected@file@percent }
 \newlabel{sec:method-supervised}{{3.3}{3}{Supervised baseline (Person B)}{subsection.3.3}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {4}Results}{3}{section.4}\protected@file@percent }
 \newlabel{sec:results}{{4}{3}{Results}{section.4}{}}
-\citation{xie2022simmim}
-\citation{balestriero2026lejepa}
-\@writefile{toc}{\contentsline {paragraph}{(1) Isotropy / rank inversion.}{4}{section*.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{(2) Mask-ratio sweep.}{4}{section*.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{(1) Isotropy / rank inversion.}{3}{section*.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{(2) Mask-ratio sweep.}{3}{section*.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Active matter parameter prediction. Z-scored MSE (lower is better) on the test split with a frozen encoder, evaluated with both a single linear probe and $k$-NN regression. Effective rank and Epps--Pulley distance are computed on the validation embedding set. We report mean$\pm $std across seeds where available. Best per column among \emph  {our} entries in \textbf  {bold}.\relax }}{4}{table.caption.1}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{tab:main-results}{{1}{4}{Active matter parameter prediction. Z-scored MSE (lower is better) on the test split with a frozen encoder, evaluated with both a single linear probe and $k$-NN regression. Effective rank and Epps--Pulley distance are computed on the validation embedding set. We report mean$\pm $std across seeds where available. Best per column among \emph {our} entries in \textbf {bold}.\relax }{table.caption.1}{}}
 \@writefile{toc}{\contentsline {paragraph}{(2b) Reconstruction loss is decoupled from downstream MSE.}{4}{section*.4}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{(3) Seed stability.}{4}{section*.5}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {5}Analysis}{4}{section.5}\protected@file@percent }
@@ -59,6 +57,7 @@
 \@writefile{toc}{\contentsline {paragraph}{Collapse via per-dim std.}{4}{section*.6}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Effective rank and participation ratio.}{4}{section*.7}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Condition number and off-diagonal correlation.}{4}{section*.8}\protected@file@percent }
+\citation{balestriero2026lejepa}
 \@writefile{toc}{\contentsline {paragraph}{Epps--Pulley distance to $\mathcal  {N}(0, I)$.}{5}{section*.9}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Channel-importance ablation.}{5}{section*.10}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Frame-budget ablation.}{5}{section*.11}\protected@file@percent }
@@ -70,12 +69,11 @@
 \citation{ohana2025well}
 \@writefile{toc}{\contentsline {section}{\numberline {6}Limitations and Ethics}{6}{section.6}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Compute accounting.}{6}{section*.15}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Dataset statistics (Tab.\nobreakspace  {}\ref  {tab:dataset}).}{6}{table.caption.19}\protected@file@percent }
 \bibcite{qu2026spatiotemporal}{{1}{2026}{{Qu et al.}}{{}}}
 \bibcite{tong2022videomae}{{2}{2022}{{Tong et al.}}{{}}}
-\bibcite{xie2022simmim}{{3}{2022}{{Xie et al.}}{{}}}
 \@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces The \texttt  {active\_matter} subset of \emph  {The Well} \citep  {ohana2025well} as we use it.\relax }}{7}{table.caption.19}\protected@file@percent }
 \newlabel{tab:dataset}{{2}{7}{The \texttt {active\_matter} subset of \emph {The Well} \citep {ohana2025well} as we use it.\relax }{table.caption.19}{}}
+\@writefile{toc}{\contentsline {paragraph}{Dataset statistics (Tab.\nobreakspace  {}\ref  {tab:dataset}).}{7}{table.caption.19}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Channel-importance deltas (Tab.\nobreakspace  {}\ref  {tab:channel-ablation}).}{7}{section*.20}\protected@file@percent }
 \@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Per-channel ablation $\Delta $test-MSE (z-scored). Bold = top channel for that encoder.\relax }}{7}{table.caption.21}\protected@file@percent }
 \newlabel{tab:channel-ablation}{{3}{7}{Per-channel ablation $\Delta $test-MSE (z-scored). Bold = top channel for that encoder.\relax }{table.caption.21}{}}
@@ -83,6 +81,7 @@
 \@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Per-channel masked-position reconstruction MSE for each VideoMAE configuration. The concentration scalar field is reconstructed $\sim $$2.5{\times }$ better than orientation/strain tensors.\relax }}{7}{table.caption.23}\protected@file@percent }
 \newlabel{tab:recon-channel-mse}{{4}{7}{Per-channel masked-position reconstruction MSE for each VideoMAE configuration. The concentration scalar field is reconstructed $\sim $$2.5{\times }$ better than orientation/strain tensors.\relax }{table.caption.23}{}}
 \@writefile{toc}{\contentsline {paragraph}{Figures.}{7}{section*.24}\protected@file@percent }
+\bibcite{xie2022simmim}{{3}{2022}{{Xie et al.}}{{}}}
 \bibcite{balestriero2026lejepa}{{4}{2026}{{Balestriero \& LeCun}}{{}}}
 \bibcite{bardes2021vicreg}{{5}{2021}{{Bardes et al.}}{{}}}
 \bibcite{liu2022convnext}{{6}{2022}{{Liu et al.}}{{}}}

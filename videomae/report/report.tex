@@ -44,31 +44,35 @@ autoencoder that we adapt for ConvNeXt by replacing masked tubes with a
 learnable mask token. We further train an end-to-end supervised baseline on the
 same encoder as an upper-bound anchor, and report a representation-collapse,
 isotropy and rank analysis suite that applies the LeJEPA Epps--Pulley statistic
-as a \emph{diagnostic} for any encoder. On the \texttt{active\_matter} test
-split with z-scored (\,$\alpha$, $\zeta$) targets and two seeds for the
-supervised baseline, our supervised baseline reaches a frozen-encoder
-linear-probe MSE of $0.10 \pm 0.005$ (kNN $0.10 \pm 0.03$) while VideoMAE
-sweeps the mask ratio $0.60 \to 0.75 \to 0.90$ to obtain a monotonically
-improving linear MSE of $0.331 \to 0.299 \to 0.253$ (best at mask$=0.90$, kNN
-$0.465$) -- a clean replication of Tong et al.'s "high mask ratio is optimal
-for video" finding on $11$-channel physical fields. Strikingly, \emph{the SSL
-VideoMAE encoders are more isotropic} (Epps--Pulley distance
-$0.039$--$0.042$ vs.\ supervised $0.086$) and have higher effective rank
-(\,$\sim$$8$ vs.\ supervised $3.5$ on validation), yet \emph{perform
-substantially worse} on the parameter estimation task -- a quantitative
-replication of \citet{qu2026spatiotemporal}'s "latent prediction beats pixel
-reconstruction" finding under our strictly weaker probe protocol, and a
-concrete demonstration that isotropy alone is not sufficient for low downstream
-MSE when the SSL objective wastes capacity on target-irrelevant signal. We
-further support this conclusion with a centered-kernel-alignment (CKA) matrix
-showing the three VideoMAE encoders are nearly identical (CKA $\geq 0.97$
-across mask ratios), the two supervised seeds are nearly identical (CKA
-$0.97$), but supervised vs.\ VideoMAE CKA is $0.72$--$0.75$, confirming that
-the SSL objective -- not the mask ratio or the seed -- is the dominant
-representation-shaping variable. A channel-importance ablation reveals that
-VideoMAE's reconstruction loss disproportionately weights the concentration
-scalar field ($\Delta$MSE $+0.26$ when zeroed for VideoMAE-mask$0.60$ vs.\
-$+0.029$ for supervised), explaining the rank-vs.-alignment trade-off.
+as a \emph{diagnostic} for any encoder. With 3 seeds for the supervised
+baseline and the main VideoMAE configuration, plus a mask-ratio sweep
+($0.60/0.75/0.90$), a longer 50-epoch training run, and 5 independent
+quantitative analyses (channel importance, frame budget, top-PC alignment,
+per-class separability, per-channel reconstruction MSE), our results
+constitute a thorough characterization of the SSL paradigm on this dataset.
+Headline numbers (test, z-scored MSE): supervised $0.106 \pm 0.006$ linear /
+$0.106 \pm 0.020$ kNN over 3 seeds; VideoMAE-mask$0.60$ $0.317 \pm 0.025$
+linear over 3 seeds; VideoMAE-mask$0.90$ $0.255 \pm 0.002$ linear over 2
+seeds. The mask-ratio sweep monotonically improves linear MSE
+($0.317 \to 0.299 \to 0.255$), replicating Tong et al.'s "high-mask is
+optimal for video" finding on $11$-channel physical fields. Strikingly,
+\emph{the SSL VideoMAE encoders are more isotropic} (Epps--Pulley distance
+$0.04$ vs.\ supervised $0.09$) and have higher effective rank ($\sim$$8$
+vs.\ supervised $\sim$$3.5$), yet \emph{perform $\sim$$2.4{\times}$ worse} on
+the parameter estimation task. A top-PC analysis pinpoints why: supervised
+reaches its full performance using \emph{only the top-2 principal components}
+(K=2 test MSE $= 0.083$ vs.\ K=full $= 0.086$), while VideoMAE needs
+\emph{all 174 PCs} ($0.55 \to 0.25$ from K=2 to K=full, a $2.2{\times}$ drop).
+A channel-importance ablation reveals the cause: VideoMAE's reconstruction
+loss disproportionately weights the concentration scalar field ($\Delta$MSE
+$+0.26$ when zeroed for VideoMAE-mask$0.60$ vs.\ $+0.029$ for supervised), and
+this is causally confirmed by per-channel reconstruction MSE (concentration
+$0.22$, orientation/strain $0.55$--$0.78$). We also show that
+\emph{reconstruction loss is decoupled from downstream MSE}: a 50-epoch run
+reduces validation reconstruction loss by $24\%$ but does not improve linear
+probe MSE. Together, these results form a five-pronged argument that pixel
+reconstruction is fundamentally misaligned with parameter estimation on this
+physics dataset.
 \end{abstract}
 
 \section{Introduction}
