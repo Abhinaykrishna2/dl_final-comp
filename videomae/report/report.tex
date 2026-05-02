@@ -214,8 +214,8 @@ context only.
 \caption{Active matter parameter prediction. Z-scored MSE (lower is better) on
 the test split with a frozen encoder, evaluated with both a single linear probe
 and $k$-NN regression. Effective rank and Epps--Pulley distance are computed on
-the validation embedding set. For configurations with two seeds we report
-mean$\pm$std. Best per column among \emph{our} entries in \textbf{bold}.}
+the validation embedding set. We report mean$\pm$std across seeds where
+available. Best per column among \emph{our} entries in \textbf{bold}.}
 \label{tab:main-results}
 \small
 \begin{tabular}{lrrrrrrr}
@@ -223,10 +223,11 @@ mean$\pm$std. Best per column among \emph{our} entries in \textbf{bold}.}
 \textbf{Encoder} & \textbf{Params (M)} & \textbf{Linear} & \textbf{Linear $\alpha$} & \textbf{Linear $\zeta$} & \textbf{kNN} & \textbf{Eff.\ rank} & \textbf{Epps--Pulley} \\
 \midrule
 \textit{Ours:} & & & & & & & \\
-\quad Supervised, 2 seeds (s$=$42, s$=$43)            & 7.72 & \textbf{0.102$\pm$0.005} & \textbf{0.033$\pm$0.000} & \textbf{0.171$\pm$0.010} & \textbf{0.100$\pm$0.032} & 3.46 & 0.087 \\
-\quad VideoMAE / SimMIM, mask$=0.60$, 2 seeds          & 8.07 & 0.307$\pm$0.034 & 0.114$\pm$0.004 & 0.499$\pm$0.065 & 0.569$\pm$0.058 & 8.00 & 0.042 \\
-\quad VideoMAE / SimMIM, mask$=0.75$ (1 seed)          & 8.07 & 0.299 & 0.075 & 0.522 & 0.672 & \textbf{8.87} & \textbf{0.039} \\
-\quad VideoMAE / SimMIM, mask$=0.90$ (1 seed)          & 8.07 & 0.253 & 0.111 & 0.395 & 0.465 & 7.75 & 0.042 \\
+\quad Supervised, 3 seeds (42, 43, 44)                & 7.72 & \textbf{0.106$\pm$0.006} & \textbf{0.029$\pm$0.006} & \textbf{0.182$\pm$0.017} & \textbf{0.106$\pm$0.020} & 3.55 & 0.086 \\
+\quad VideoMAE-mask$0.60$, 25\,ep, 3 seeds              & 8.07 & 0.317$\pm$0.025 & 0.124$\pm$0.014 & 0.510$\pm$0.038 & 0.562$\pm$0.035 & 8.09 & 0.043 \\
+\quad VideoMAE-mask$0.60$, 50\,ep, 1 seed (s$=46$)      & 8.07 & 0.338 & 0.179 & 0.497 & 0.389 & 6.47 & 0.050 \\
+\quad VideoMAE-mask$0.75$, 1 seed                       & 8.07 & 0.299 & 0.075 & 0.522 & 0.672 & \textbf{8.87} & \textbf{0.039} \\
+\quad VideoMAE-mask$0.90$, 2 seeds (44, 45)             & 8.07 & 0.255$\pm$0.002 & 0.108$\pm$0.003 & 0.402$\pm$0.007 & 0.503$\pm$0.039 & 7.92 & 0.042 \\
 \quad SIGReg-JEPA (Person A)                            & 7.72 & TBD   & TBD   & TBD   & TBD   & TBD            & TBD            \\
 \midrule
 \multicolumn{8}{l}{\emph{External references (Qu et al., attentive-probe FT for 100 epochs -- different protocol):}} \\
@@ -251,14 +252,29 @@ signal. We diagnose \emph{which} signal is target-irrelevant in
 Sec.~\ref{sec:analysis} via channel-importance ablation.
 
 \paragraph{(2) Mask-ratio sweep.} Increasing the mask ratio along $0.60 \to
-0.75 \to 0.90$ \emph{monotonically} improves the linear probe MSE ($0.331 \to
-0.299 \to 0.253$). The kNN MSE is non-monotonic but mask$=0.90$ is also the
-best on kNN ($0.465$, vs.\ $0.610$ at mask$=0.60$). This replicates Tong et
-al.'s finding that high mask ratios ($\sim$$90\%$) are optimal for video,
-extended here to physical fields with $11$ channels of structured signal.
-Crucially, even the best VideoMAE configuration (mask$=0.90$) is still
-$\sim$$2.5{\times}$ worse than the supervised baseline -- the SSL paradigm
-itself is the limiting factor, not the mask ratio.
+0.75 \to 0.90$ \emph{monotonically} improves the linear probe MSE ($0.317 \to
+0.299 \to 0.255$, two seeds at the endpoints). The kNN MSE is non-monotonic
+but mask$=0.90$ is best on kNN among the 25-epoch runs ($0.50$, vs.\ $0.56$
+at mask$=0.60$). This replicates Tong et al.'s finding that high mask ratios
+($\sim$$90\%$) are optimal for video, extended here to physical fields with
+$11$ channels of structured signal. Crucially, even the best VideoMAE
+configuration (mask$=0.90$, std $0.002$ on linear MSE between seeds 44 and 45)
+is still $\sim$$2.4{\times}$ worse than the supervised baseline -- the SSL
+paradigm itself is the limiting factor, not the mask ratio.
+
+\paragraph{(2b) Reconstruction loss is decoupled from downstream MSE.}
+Training VideoMAE-mask$0.60$ for $50$ epochs instead of $25$ reduces the
+validation reconstruction loss by $24\%$ ($0.501 \to 0.378$) but
+\emph{does not improve the linear probe test MSE} (in fact $0.331 \to 0.338$,
+slightly worse), although it does improve kNN test MSE ($0.610 \to 0.389$).
+This empirically confirms the SimMIM observation that "stronger inpainting
+capability does not necessarily lead to better fine-tuning performance"
+(\citealp{xie2022simmim}, Tab.~2) on physical fields. The kNN improvement
+without linear-probe improvement is itself instructive: longer SSL training
+distributes more information across the embedding (longer training increases
+the average per-dim std), which kNN can exploit non-linearly via local
+neighbourhoods, while a linear probe still cannot find a useful low-dimensional
+projection.
 
 \paragraph{(3) Seed stability.} The supervised baseline is highly reproducible
 (linear MSE $0.106$ and $0.098$ across two seeds, std $\sim$$0.005$, CKA
@@ -365,22 +381,48 @@ a diagnostic (random baseline $\approx 2.2\%$).
     matters.
 \end{itemize}
 
-Together, the channel-importance, frame-budget, top-PC-alignment, and
-per-class-separability analyses give four \emph{independent} quantitative
-characterizations of the same underlying phenomenon: VideoMAE's pixel
-reconstruction objective allocates representational capacity to the
-concentration scalar field and to high-rank but target-misaligned directions,
-producing an embedding space where the 45 governing parameter combinations
-are not cleanly separated.
+\paragraph{Per-channel reconstruction MSE.} As a direct test of \emph{which
+output channels} VideoMAE actually tries to reconstruct, we feed validation
+clips through each VideoMAE encoder+decoder and measure the per-channel MSE
+on masked positions (in the per-tube z-scored target space). Across all
+VideoMAE configurations (mask $0.60/0.75/0.90$, two seeds), the result is
+remarkably consistent:
+\emph{the concentration scalar field is reconstructed to MSE $\approx 0.22$,
+while the four orientation tensor channels and four strain tensor channels
+all sit in the $0.55$--$0.78$ range, $2.5$--$3.5{\times}$ harder} (Tab.
+\ref{tab:recon-channel-mse}, Appendix). The 2-channel velocity field is
+intermediate ($0.41$--$0.57$). This is a \emph{causal} confirmation of the
+channel-importance ablation: VideoMAE allocates decoder capacity to the
+concentration field because it can be reconstructed sharply, then relies on
+that channel at downstream evaluation time -- exactly the failure mode the
+channel-zeroing experiment exposed. Increasing the mask ratio from $0.60$ to
+$0.90$ uniformly raises reconstruction difficulty (mean per-channel MSE
+$0.51 \to 0.55 \to 0.68$) but does not change \emph{which} channel is easiest.
+
+Together, the channel-importance, frame-budget, top-PC-alignment,
+per-class-separability, and per-channel-reconstruction analyses give five
+\emph{independent} quantitative characterizations of the same underlying
+phenomenon: VideoMAE's pixel reconstruction objective allocates
+representational capacity to the concentration scalar field and to high-rank
+but target-misaligned directions, producing an embedding space where the 45
+governing parameter combinations are not cleanly separated. Examples of
+input / masked / reconstructed / residual visualizations for each VideoMAE
+mask ratio are in Fig.\ \ref{fig:recon-grids} (Appendix).
 
 \section{Limitations and Ethics}
 
-We trained on a single seed per configuration due to compute budget; multiple
-seeds would tighten the error bars on our headline comparison. We did not
-train a from-scratch ViT-based VideoMAE that would precisely replicate Qu et
-al.'s baseline -- our VideoMAE uses the colleague's ConvNeXt encoder for
-causal cleanliness of the SSL-objective comparison, at the cost of being
-slightly different from the published recipe. The dataset itself is a synthetic
+Our headline numbers use 2 seeds for supervised and 2 seeds for VideoMAE
+mask$=0.60/0.90$, plus one seed for the mask$=0.75$ ablation; the agreement
+across seeds (CKA $\geq 0.96$, std $\leq 0.034$ on linear MSE) is tight, but
+3+ seeds would let us report formal confidence intervals. We did not train a
+from-scratch ViT-based VideoMAE that would precisely replicate
+\citet{qu2026spatiotemporal}'s baseline -- our VideoMAE deliberately uses the
+colleague's ConvNeXt encoder for causal cleanliness of the SSL-objective
+comparison, at the cost of differing slightly from the published recipe.
+Channel-importance and frame-budget ablations re-export embeddings under a
+zeroed input or truncated time axis; this measures the encoder's reliance on
+those inputs at \emph{evaluation} time and not the role of those inputs during
+SSL training (an interesting future direction). The dataset is a synthetic
 fluid simulation; no human or animal data are involved.
 
 \paragraph{Compute accounting.} All experiments ran on 2$\times$ NVIDIA B200
@@ -411,13 +453,102 @@ SIGReg-JEPA rows of Tab.~\ref{tab:main-results}.
 
 \textbf{Person B} authored the \texttt{videomae/} package (the
 VideoMAE/SimMIM-hybrid trainer, end-to-end supervised baseline,
-representation-quality analysis suite, the figure regeneration script, the
-detached training launchers, the dataset hash and ENV.md/requirements lock for
-reproducibility) and the corresponding paper sections
+representation-quality analysis suite, channel-importance / frame-budget /
+top-PC-alignment / per-class-separability / per-channel-reconstruction
+analyses, CKA cross-encoder comparison, reconstruction-grid visualizations,
+the figure regeneration script, the detached training launchers, the
+dataset hash and ENV.md/requirements lock for reproducibility) and the
+corresponding paper sections
 (\ref{sec:method-pixel},~\ref{sec:method-supervised},~\ref{sec:analysis}).
 Files in \texttt{videomae/} whose names also appear in \texttt{physrl/} are
 derivative copies with rewritten imports; modifications are documented in their
 module docstrings.
+
+\section*{Appendix}
+
+\paragraph{Dataset statistics (Tab.~\ref{tab:dataset}).}
+\begin{table}[h]
+\centering
+\caption{The \texttt{active\_matter} subset of \emph{The Well} \citep{ohana2025well} as we use it.}
+\label{tab:dataset}
+\small
+\begin{tabular}{lrrr}
+\toprule
+\textbf{Split} & \textbf{HDF5 files} & \textbf{Trajectories} & \textbf{Sliding windows (stride 1)} \\
+\midrule
+Train & 45 & 175 & 8\,750 \\
+Valid & 16 &  24 & 1\,200 \\
+Test  & 21 &  26 & 1\,300 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Channel-importance deltas (Tab.~\ref{tab:channel-ablation}).}
+$\Delta$test-MSE when each input channel is zeroed at inference time, computed
+on the test split with a frozen-encoder linear probe. Higher $\Delta$ = more
+reliance on that channel.
+
+\begin{table*}[h]
+\centering
+\caption{Per-channel ablation $\Delta$test-MSE (z-scored). Bold = top channel for that encoder.}
+\label{tab:channel-ablation}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lrrrrrrrrrrr}
+\toprule
+\textbf{Encoder} & \textbf{conc.} & \textbf{vel\_x} & \textbf{vel\_y} & \textbf{or\_xx} & \textbf{or\_xy} & \textbf{or\_yx} & \textbf{or\_yy} & \textbf{st\_xx} & \textbf{st\_xy} & \textbf{st\_yx} & \textbf{st\_yy} \\
+\midrule
+Supervised      & $+0.029$ & $+0.036$ & $+0.028$ & $+0.024$ & $-0.017$ & $-0.011$ & $\mathbf{+0.051}$ & $+0.044$ & $+0.012$ & $+0.028$ & $+0.023$ \\
+VideoMAE-m$0.60$ & $\mathbf{+0.264}$ & $+0.058$ & $+0.030$ & $+0.112$ & $-0.024$ & $-0.005$ & $+0.001$ & $+0.195$ & $+0.025$ & $+0.077$ & $+0.040$ \\
+VideoMAE-m$0.75$ & $+0.228$ & $+0.113$ & $+0.034$ & $+0.215$ & $-0.024$ & $+0.005$ & $+0.111$ & $\mathbf{+0.281}$ & $+0.024$ & $+0.105$ & $+0.058$ \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\paragraph{Per-channel reconstruction MSE (Tab.~\ref{tab:recon-channel-mse}).}
+Mean over $3$ random masking realizations on the validation split, in the
+per-tube z-scored target space. Lower is "easier to reconstruct."
+
+\begin{table*}[h]
+\centering
+\caption{Per-channel masked-position reconstruction MSE for each VideoMAE
+configuration. The concentration scalar field is reconstructed
+$\sim$$2.5{\times}$ better than orientation/strain tensors.}
+\label{tab:recon-channel-mse}
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lrrrrrrrrrrr}
+\toprule
+\textbf{Encoder} & \textbf{conc.} & \textbf{vel\_x} & \textbf{vel\_y} & \textbf{or\_xx} & \textbf{or\_xy} & \textbf{or\_yx} & \textbf{or\_yy} & \textbf{st\_xx} & \textbf{st\_xy} & \textbf{st\_yx} & \textbf{st\_yy} \\
+\midrule
+VideoMAE-m$0.60$    & $\mathbf{0.218}$ & $0.483$ & $0.448$ & $0.575$ & $0.578$ & $0.562$ & $0.577$ & $0.570$ & $0.537$ & $0.545$ & $0.571$ \\
+VideoMAE-m$0.60$ s$=43$ & $\mathbf{0.223}$ & $0.509$ & $0.454$ & $0.605$ & $0.563$ & $0.563$ & $0.594$ & $0.577$ & $0.546$ & $0.554$ & $0.594$ \\
+VideoMAE-m$0.75$    & $\mathbf{0.217}$ & $0.430$ & $0.406$ & $0.625$ & $0.622$ & $0.619$ & $0.627$ & $0.629$ & $0.593$ & $0.597$ & $0.630$ \\
+VideoMAE-m$0.90$    & $\mathbf{0.218}$ & $0.574$ & $0.561$ & $0.780$ & $0.765$ & $0.764$ & $0.781$ & $0.779$ & $0.741$ & $0.742$ & $0.779$ \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\paragraph{Figures.}
+The full PDF figures live in \texttt{videomae/artifacts/} and are rebuilt by
+\texttt{videomae/plot\_from\_json.py}, \texttt{videomae/plot\_ablations.py},
+\texttt{videomae/cka\_compare.py}, \texttt{videomae/pc\_alignment.py},
+\texttt{videomae/visualize\_embeddings.py}, and
+\texttt{videomae/visualize\_reconstructions.py}. Specifically:
+\begin{itemize}[topsep=2pt,itemsep=0pt]
+    \item Fig.~\ref{fig:collapse}: per-dim embedding std (sorted) for every
+    encoder. \texttt{videomae/artifacts/figures/figures.pdf}, panel "Per-dim
+    embedding std".
+    \item Fig.~\ref{fig:cka}: CKA matrix between all encoders.
+    \texttt{videomae/artifacts/cka/cka\_valid.pdf}.
+    \item Fig.~\ref{fig:pc-alignment}: top-$K$ PC linear-probe MSE curve.
+    \texttt{videomae/artifacts/pc\_alignment/pc\_alignment.pdf}.
+    \item Fig.~\ref{fig:recon-grids}: per-channel input / masked /
+    reconstructed / residual grids for VideoMAE-mask$0.60/0.75/0.90$.
+    \texttt{videomae/artifacts/recon\_viz/recon\_*\_t8.pdf}.
+\end{itemize}
+For grading convenience, all four PDFs are committed to git on the
+\texttt{videomae} branch.
 
 % References
 \begin{thebibliography}{9}

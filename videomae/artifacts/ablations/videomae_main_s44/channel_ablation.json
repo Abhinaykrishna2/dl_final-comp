@@ -1,0 +1,156 @@
+{
+  "baseline": {
+    "test_normalized_alpha_mse": 0.09952545166015625,
+    "test_normalized_mean_mse": 0.2529654800891876,
+    "test_normalized_zeta_mse": 0.406405508518219,
+    "valid_normalized_alpha_mse": 0.06065726280212402,
+    "valid_normalized_mean_mse": 0.5666597485542297,
+    "valid_normalized_zeta_mse": 1.0726622343063354
+  },
+  "channel_names": [
+    "concentration",
+    "vel_x",
+    "vel_y",
+    "orient_xx",
+    "orient_xy",
+    "orient_yx",
+    "orient_yy",
+    "strain_xx",
+    "strain_xy",
+    "strain_yx",
+    "strain_yy"
+  ],
+  "per_channel": [
+    {
+      "channel": -1,
+      "channel_name": "baseline",
+      "test_normalized_alpha_mse": 0.09952545166015625,
+      "test_normalized_mean_mse": 0.2529654800891876,
+      "test_normalized_zeta_mse": 0.406405508518219,
+      "valid_normalized_alpha_mse": 0.06065726280212402,
+      "valid_normalized_mean_mse": 0.5666597485542297,
+      "valid_normalized_zeta_mse": 1.0726622343063354
+    },
+    {
+      "channel": 0,
+      "channel_name": "concentration",
+      "test_mse_delta_vs_baseline": 0.1364649534225464,
+      "test_normalized_alpha_mse": 0.11945165693759918,
+      "test_normalized_mean_mse": 0.389430433511734,
+      "test_normalized_zeta_mse": 0.65940922498703,
+      "valid_normalized_alpha_mse": 0.05030831694602966,
+      "valid_normalized_mean_mse": 0.4212910532951355,
+      "valid_normalized_zeta_mse": 0.7922738194465637
+    },
+    {
+      "channel": 1,
+      "channel_name": "vel_x",
+      "test_mse_delta_vs_baseline": 0.019463539123535156,
+      "test_normalized_alpha_mse": 0.11003828793764114,
+      "test_normalized_mean_mse": 0.2724290192127228,
+      "test_normalized_zeta_mse": 0.4348197281360626,
+      "valid_normalized_alpha_mse": 0.06114012375473976,
+      "valid_normalized_mean_mse": 0.6047857403755188,
+      "valid_normalized_zeta_mse": 1.1484313011169434
+    },
+    {
+      "channel": 2,
+      "channel_name": "vel_y",
+      "test_mse_delta_vs_baseline": -0.03619132936000824,
+      "test_normalized_alpha_mse": 0.12757638096809387,
+      "test_normalized_mean_mse": 0.21677415072917938,
+      "test_normalized_zeta_mse": 0.3059719204902649,
+      "valid_normalized_alpha_mse": 0.03819591924548149,
+      "valid_normalized_mean_mse": 0.5103768706321716,
+      "valid_normalized_zeta_mse": 0.9825577735900879
+    },
+    {
+      "channel": 3,
+      "channel_name": "orient_xx",
+      "test_mse_delta_vs_baseline": 0.04936540126800537,
+      "test_normalized_alpha_mse": 0.11247469484806061,
+      "test_normalized_mean_mse": 0.302330881357193,
+      "test_normalized_zeta_mse": 0.4921870529651642,
+      "valid_normalized_alpha_mse": 0.06452696770429611,
+      "valid_normalized_mean_mse": 0.4981326460838318,
+      "valid_normalized_zeta_mse": 0.9317383170127869
+    },
+    {
+      "channel": 4,
+      "channel_name": "orient_xy",
+      "test_mse_delta_vs_baseline": -0.02850547432899475,
+      "test_normalized_alpha_mse": 0.11938957870006561,
+      "test_normalized_mean_mse": 0.22446000576019287,
+      "test_normalized_zeta_mse": 0.32953041791915894,
+      "valid_normalized_alpha_mse": 0.07779069244861603,
+      "valid_normalized_mean_mse": 0.5023642778396606,
+      "valid_normalized_zeta_mse": 0.9269378185272217
+    },
+    {
+      "channel": 5,
+      "channel_name": "orient_yx",
+      "test_mse_delta_vs_baseline": 0.03598266839981079,
+      "test_normalized_alpha_mse": 0.20621129870414734,
+      "test_normalized_mean_mse": 0.2889481484889984,
+      "test_normalized_zeta_mse": 0.3716849982738495,
+      "valid_normalized_alpha_mse": 0.0716700553894043,
+      "valid_normalized_mean_mse": 0.6001810431480408,
+      "valid_normalized_zeta_mse": 1.1286920309066772
+    },
+    {
+      "channel": 6,
+      "channel_name": "orient_yy",
+      "test_mse_delta_vs_baseline": 0.218043714761734,
+      "test_normalized_alpha_mse": 0.11233915388584137,
+      "test_normalized_mean_mse": 0.47100919485092163,
+      "test_normalized_zeta_mse": 0.8296792507171631,
+      "valid_normalized_alpha_mse": 0.055775925517082214,
+      "valid_normalized_mean_mse": 0.5107370018959045,
+      "valid_normalized_zeta_mse": 0.9656980633735657
+    },
+    {
+      "channel": 7,
+      "channel_name": "strain_xx",
+      "test_mse_delta_vs_baseline": 0.03837054967880249,
+      "test_normalized_alpha_mse": 0.0985938161611557,
+      "test_normalized_mean_mse": 0.2913360297679901,
+      "test_normalized_zeta_mse": 0.4840782582759857,
+      "valid_normalized_alpha_mse": 0.057791102677583694,
+      "valid_normalized_mean_mse": 0.5027500987052917,
+      "valid_normalized_zeta_mse": 0.9477090835571289
+    },
+    {
+      "channel": 8,
+      "channel_name": "strain_xy",
+      "test_mse_delta_vs_baseline": 0.10014757513999939,
+      "test_normalized_alpha_mse": 0.1591070592403412,
+      "test_normalized_mean_mse": 0.353113055229187,
+      "test_normalized_zeta_mse": 0.5471190214157104,
+      "valid_normalized_alpha_mse": 0.0741610899567604,
+      "valid_normalized_mean_mse": 0.56432044506073,
+      "valid_normalized_zeta_mse": 1.0544798374176025
+    },
+    {
+      "channel": 9,
+      "channel_name": "strain_yx",
+      "test_mse_delta_vs_baseline": 0.01726144552230835,
+      "test_normalized_alpha_mse": 0.08313819020986557,
+      "test_normalized_mean_mse": 0.27022692561149597,
+      "test_normalized_zeta_mse": 0.4573156535625458,
+      "valid_normalized_alpha_mse": 0.06222735717892647,
+      "valid_normalized_mean_mse": 0.5651877522468567,
+      "valid_normalized_zeta_mse": 1.068148136138916
+    },
+    {
+      "channel": 10,
+      "channel_name": "strain_yy",
+      "test_mse_delta_vs_baseline": 0.03247418999671936,
+      "test_normalized_alpha_mse": 0.07524102181196213,
+      "test_normalized_mean_mse": 0.285439670085907,
+      "test_normalized_zeta_mse": 0.49563831090927124,
+      "valid_normalized_alpha_mse": 0.05222127214074135,
+      "valid_normalized_mean_mse": 0.5937929153442383,
+      "valid_normalized_zeta_mse": 1.1353645324707031
+    }
+  ]
+}

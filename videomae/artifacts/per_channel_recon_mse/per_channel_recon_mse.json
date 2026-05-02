@@ -1,0 +1,91 @@
+{
+  "encoders": {
+    "VideoMAE-mask60": {
+      "checkpoint": "videomae/artifacts/videomae_main/last.pt",
+      "mean_masked_recon_mse": 0.5149702446565599,
+      "per_channel_masked_recon_mse": {
+        "concentration": 0.21767799517024924,
+        "orient_xx": 0.5745925969517592,
+        "orient_xy": 0.5779562518773986,
+        "orient_yx": 0.5624156568907115,
+        "orient_yy": 0.5773923341609298,
+        "strain_xx": 0.5698714413590094,
+        "strain_xy": 0.5370235616187949,
+        "strain_yx": 0.5449622258492588,
+        "strain_yy": 0.5709678235673423,
+        "vel_x": 0.4834356066405715,
+        "vel_y": 0.4483771971361358
+      }
+    },
+    "VideoMAE-mask60-s43": {
+      "checkpoint": "videomae/artifacts/videomae_main_s43/last.pt",
+      "mean_masked_recon_mse": 0.5254897590412584,
+      "per_channel_masked_recon_mse": {
+        "concentration": 0.22335109676016096,
+        "orient_xx": 0.604948510094313,
+        "orient_xy": 0.5625153776393621,
+        "orient_yx": 0.5627704560957578,
+        "orient_yy": 0.59419939090168,
+        "strain_xx": 0.5767555792002838,
+        "strain_xy": 0.5455369125962898,
+        "strain_yx": 0.5536489265007408,
+        "strain_yy": 0.5934848716833535,
+        "vel_x": 0.5092409395047044,
+        "vel_y": 0.45393528847719644
+      }
+    },
+    "VideoMAE-mask75": {
+      "checkpoint": "videomae/artifacts/videomae_mask75/last.pt",
+      "mean_masked_recon_mse": 0.5451247729980578,
+      "per_channel_masked_recon_mse": {
+        "concentration": 0.21693640167799202,
+        "orient_xx": 0.6253197658812872,
+        "orient_xy": 0.6222175498488915,
+        "orient_yx": 0.6186994433020332,
+        "orient_yy": 0.627212506402336,
+        "strain_xx": 0.6293526892697221,
+        "strain_xy": 0.5933079940749579,
+        "strain_yx": 0.5968496638903957,
+        "strain_yy": 0.6296637923595996,
+        "vel_x": 0.43048931176723826,
+        "vel_y": 0.40632338450418193
+      }
+    },
+    "VideoMAE-mask90": {
+      "checkpoint": "videomae/artifacts/videomae_mask90/last.pt",
+      "mean_masked_recon_mse": 0.6803955667518025,
+      "per_channel_masked_recon_mse": {
+        "concentration": 0.2177676070499019,
+        "orient_xx": 0.78002675861186,
+        "orient_xy": 0.765332974272935,
+        "orient_yx": 0.7636186971750436,
+        "orient_yy": 0.7809190848686434,
+        "strain_xx": 0.7786320952931715,
+        "strain_xy": 0.7412570239543573,
+        "strain_yx": 0.7424838457229237,
+        "strain_yy": 0.7786391182726122,
+        "vel_x": 0.5741853470500078,
+        "vel_y": 0.5614886819983697
+      }
+    },
+    "VideoMAE-mask90-s45": {
+      "checkpoint": "videomae/artifacts/videomae_mask90_s45/last.pt",
+      "mean_masked_recon_mse": 0.6807992075433698,
+      "per_channel_masked_recon_mse": {
+        "concentration": 0.21681951255581422,
+        "orient_xx": 0.7795314112098807,
+        "orient_xy": 0.768809329117468,
+        "orient_yx": 0.7674104713280732,
+        "orient_yy": 0.7805554987394342,
+        "strain_xx": 0.7798029024098734,
+        "strain_xy": 0.7407848144137872,
+        "strain_yx": 0.7420843170228453,
+        "strain_yy": 0.7799258217392945,
+        "vel_x": 0.5672321512782997,
+        "vel_y": 0.5658350531622973
+      }
+    }
+  },
+  "n_samples": 24,
+  "split": "valid"
+}

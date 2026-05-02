@@ -1,7 +1,7 @@
 {
   "feature_norm": "zscore",
   "runs": {
-    "Supervised": {
+    "Sup-s42": {
       "embedding_dim": 256,
       "fisher_separability": 3.383899579724376,
       "mean_inter_centroid_distance": 19.368448427405884,
@@ -14,7 +14,7 @@
       "test_nearest_centroid_acc": 0.4230769230769231,
       "valid_nearest_centroid_acc": 0.3333333333333333
     },
-    "Supervised-s43": {
+    "Sup-s43": {
       "embedding_dim": 256,
       "fisher_separability": 3.708085201386918,
       "mean_inter_centroid_distance": 19.622978294098605,
@@ -27,7 +27,33 @@
       "test_nearest_centroid_acc": 0.34615384615384615,
       "valid_nearest_centroid_acc": 0.20833333333333334
     },
-    "VideoMAE-mask60": {
+    "Sup-s44": {
+      "embedding_dim": 256,
+      "fisher_separability": 3.270820476203854,
+      "mean_inter_centroid_distance": 19.115062217959668,
+      "mean_intra_class_distance": 5.844118427479332,
+      "n_classes": 45,
+      "n_test": 26,
+      "n_train": 175,
+      "n_valid": 24,
+      "run_dir": "/root/dl_final-comp/videomae/artifacts/supervised_s44",
+      "test_nearest_centroid_acc": 0.15384615384615385,
+      "valid_nearest_centroid_acc": 0.16666666666666666
+    },
+    "VMAE-m60-50ep": {
+      "embedding_dim": 256,
+      "fisher_separability": 1.5795000869787899,
+      "mean_inter_centroid_distance": 15.958916143153358,
+      "mean_intra_class_distance": 10.10377667891047,
+      "n_classes": 45,
+      "n_test": 26,
+      "n_train": 175,
+      "n_valid": 24,
+      "run_dir": "/root/dl_final-comp/videomae/artifacts/videomae_main_50ep_s46",
+      "test_nearest_centroid_acc": 0.19230769230769232,
+      "valid_nearest_centroid_acc": 0.08333333333333333
+    },
+    "VMAE-m60-s42": {
       "embedding_dim": 256,
       "fisher_separability": 1.3135513912236645,
       "mean_inter_centroid_distance": 14.784440078577807,
@@ -40,33 +66,7 @@
       "test_nearest_centroid_acc": 0.038461538461538464,
       "valid_nearest_centroid_acc": 0.125
     },
-    "VideoMAE-mask60-s43": {
-      "embedding_dim": 256,
-      "fisher_separability": 1.347258813017935,
-      "mean_inter_centroid_distance": 15.040165513312282,
-      "mean_intra_class_distance": 11.163530991956527,
-      "n_classes": 45,
-      "n_test": 26,
-      "n_train": 175,
-      "n_valid": 24,
-      "run_dir": "/root/dl_final-comp/videomae/artifacts/videomae_main_s43",
-      "test_nearest_centroid_acc": 0.038461538461538464,
-      "valid_nearest_centroid_acc": 0.20833333333333334
-    },
-    "VideoMAE-mask75": {
-      "embedding_dim": 256,
-      "fisher_separability": 1.291095808234184,
-      "mean_inter_centroid_distance": 14.713190710546638,
-      "mean_intra_class_distance": 11.395893795573304,
-      "n_classes": 45,
-      "n_test": 26,
-      "n_train": 175,
-      "n_valid": 24,
-      "run_dir": "/root/dl_final-comp/videomae/artifacts/videomae_mask75",
-      "test_nearest_centroid_acc": 0.038461538461538464,
-      "valid_nearest_centroid_acc": 0.16666666666666666
-    },
-    "VideoMAE-mask90": {
+    "VMAE-m90": {
       "embedding_dim": 256,
       "fisher_separability": 1.3265892465191147,
       "mean_inter_centroid_distance": 14.879691455732958,

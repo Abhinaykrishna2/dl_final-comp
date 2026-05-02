@@ -1,0 +1,69 @@
+[channel] === supervised_s44 ===
+[channel] baseline (no ablation)
+[channel] baseline test_MSE = 0.1446
+[channel] 0: concentration zeroed
+[channel] 0=concentration test_MSE = 0.1517  delta = +0.0071
+[channel] 1: vel_x zeroed
+[channel] 1=vel_x test_MSE = 0.1698  delta = +0.0252
+[channel] 2: vel_y zeroed
+[channel] 2=vel_y test_MSE = 0.2036  delta = +0.0590
+[channel] 3: orient_xx zeroed
+[channel] 3=orient_xx test_MSE = 0.1581  delta = +0.0135
+[channel] 4: orient_xy zeroed
+[channel] 4=orient_xy test_MSE = 0.1121  delta = -0.0326
+[channel] 5: orient_yx zeroed
+[channel] 5=orient_yx test_MSE = 0.1268  delta = -0.0178
+[channel] 6: orient_yy zeroed
+[channel] 6=orient_yy test_MSE = 0.3544  delta = +0.2098
+[channel] 7: strain_xx zeroed
+[channel] 7=strain_xx test_MSE = 0.1569  delta = +0.0123
+[channel] 8: strain_xy zeroed
+[channel] 8=strain_xy test_MSE = 0.1731  delta = +0.0285
+[channel] 9: strain_yx zeroed
+[channel] 9=strain_yx test_MSE = 0.1647  delta = +0.0200
+[channel] 10: strain_yy zeroed
+[channel] 10=strain_yy test_MSE = 0.1531  delta = +0.0085
+[frame] === supervised_s44 ===
+[frame] frames=4
+[frame] frames=4 test_MSE = 0.1548
+[frame] frames=8
+[frame] frames=8 test_MSE = 0.1433
+[frame] frames=12
+[frame] frames=12 test_MSE = 0.1651
+[frame] frames=16
+[frame] frames=16 test_MSE = 0.1446
+[channel] === videomae_main_s44 ===
+[channel] baseline (no ablation)
+[channel] baseline test_MSE = 0.2530
+[channel] 0: concentration zeroed
+[channel] 0=concentration test_MSE = 0.3894  delta = +0.1365
+[channel] 1: vel_x zeroed
+[channel] 1=vel_x test_MSE = 0.2724  delta = +0.0195
+[channel] 2: vel_y zeroed
+[channel] 2=vel_y test_MSE = 0.2168  delta = -0.0362
+[channel] 3: orient_xx zeroed
+[channel] 3=orient_xx test_MSE = 0.3023  delta = +0.0494
+[channel] 4: orient_xy zeroed
+[channel] 4=orient_xy test_MSE = 0.2245  delta = -0.0285
+[channel] 5: orient_yx zeroed
+[channel] 5=orient_yx test_MSE = 0.2889  delta = +0.0360
+[channel] 6: orient_yy zeroed
+[channel] 6=orient_yy test_MSE = 0.4710  delta = +0.2180
+[channel] 7: strain_xx zeroed
+[channel] 7=strain_xx test_MSE = 0.2913  delta = +0.0384
+[channel] 8: strain_xy zeroed
+[channel] 8=strain_xy test_MSE = 0.3531  delta = +0.1001
+[channel] 9: strain_yx zeroed
+[channel] 9=strain_yx test_MSE = 0.2702  delta = +0.0173
+[channel] 10: strain_yy zeroed
+[channel] 10=strain_yy test_MSE = 0.2854  delta = +0.0325
+[frame] === videomae_main_s44 ===
+[frame] frames=4
+[frame] frames=4 test_MSE = 0.4847
+[frame] frames=8
+[frame] frames=8 test_MSE = 0.3440
+[frame] frames=12
+[frame] frames=12 test_MSE = 0.3025
+[frame] frames=16
+[frame] frames=16 test_MSE = 0.2530
+{'out_dir': 'videomae/artifacts/ablations', 'encoders': ['supervised_s44', 'videomae_main_s44']}

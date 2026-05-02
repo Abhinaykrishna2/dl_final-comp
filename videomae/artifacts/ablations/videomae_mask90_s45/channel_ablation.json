@@ -1,0 +1,156 @@
+{
+  "baseline": {
+    "test_normalized_alpha_mse": 0.1104525774717331,
+    "test_normalized_mean_mse": 0.28537699580192566,
+    "test_normalized_zeta_mse": 0.4603014290332794,
+    "valid_normalized_alpha_mse": 0.047805313020944595,
+    "valid_normalized_mean_mse": 0.40577688813209534,
+    "valid_normalized_zeta_mse": 0.7637484669685364
+  },
+  "channel_names": [
+    "concentration",
+    "vel_x",
+    "vel_y",
+    "orient_xx",
+    "orient_xy",
+    "orient_yx",
+    "orient_yy",
+    "strain_xx",
+    "strain_xy",
+    "strain_yx",
+    "strain_yy"
+  ],
+  "per_channel": [
+    {
+      "channel": -1,
+      "channel_name": "baseline",
+      "test_normalized_alpha_mse": 0.1104525774717331,
+      "test_normalized_mean_mse": 0.28537699580192566,
+      "test_normalized_zeta_mse": 0.4603014290332794,
+      "valid_normalized_alpha_mse": 0.047805313020944595,
+      "valid_normalized_mean_mse": 0.40577688813209534,
+      "valid_normalized_zeta_mse": 0.7637484669685364
+    },
+    {
+      "channel": 0,
+      "channel_name": "concentration",
+      "test_mse_delta_vs_baseline": 0.18474724888801575,
+      "test_normalized_alpha_mse": 0.22113162279129028,
+      "test_normalized_mean_mse": 0.4701242446899414,
+      "test_normalized_zeta_mse": 0.7191168665885925,
+      "valid_normalized_alpha_mse": 0.05472211912274361,
+      "valid_normalized_mean_mse": 0.3366783857345581,
+      "valid_normalized_zeta_mse": 0.6186346411705017
+    },
+    {
+      "channel": 1,
+      "channel_name": "vel_x",
+      "test_mse_delta_vs_baseline": 0.05285137891769409,
+      "test_normalized_alpha_mse": 0.1596118062734604,
+      "test_normalized_mean_mse": 0.33822837471961975,
+      "test_normalized_zeta_mse": 0.5168449282646179,
+      "valid_normalized_alpha_mse": 0.06867123395204544,
+      "valid_normalized_mean_mse": 0.28431078791618347,
+      "valid_normalized_zeta_mse": 0.4999503195285797
+    },
+    {
+      "channel": 2,
+      "channel_name": "vel_y",
+      "test_mse_delta_vs_baseline": 0.143070250749588,
+      "test_normalized_alpha_mse": 0.2116067111492157,
+      "test_normalized_mean_mse": 0.42844724655151367,
+      "test_normalized_zeta_mse": 0.6452877521514893,
+      "valid_normalized_alpha_mse": 0.09107234328985214,
+      "valid_normalized_mean_mse": 0.35672903060913086,
+      "valid_normalized_zeta_mse": 0.6223857402801514
+    },
+    {
+      "channel": 3,
+      "channel_name": "orient_xx",
+      "test_mse_delta_vs_baseline": 0.07999980449676514,
+      "test_normalized_alpha_mse": 0.13375204801559448,
+      "test_normalized_mean_mse": 0.3653768002986908,
+      "test_normalized_zeta_mse": 0.5970015525817871,
+      "valid_normalized_alpha_mse": 0.049507636576890945,
+      "valid_normalized_mean_mse": 0.32597824931144714,
+      "valid_normalized_zeta_mse": 0.6024488806724548
+    },
+    {
+      "channel": 4,
+      "channel_name": "orient_xy",
+      "test_mse_delta_vs_baseline": -0.002499192953109741,
+      "test_normalized_alpha_mse": 0.21388667821884155,
+      "test_normalized_mean_mse": 0.2828778028488159,
+      "test_normalized_zeta_mse": 0.3518688976764679,
+      "valid_normalized_alpha_mse": 0.045157138258218765,
+      "valid_normalized_mean_mse": 0.31149300932884216,
+      "valid_normalized_zeta_mse": 0.5778288841247559
+    },
+    {
+      "channel": 5,
+      "channel_name": "orient_yx",
+      "test_mse_delta_vs_baseline": 0.09870085120201111,
+      "test_normalized_alpha_mse": 0.26601138710975647,
+      "test_normalized_mean_mse": 0.38407784700393677,
+      "test_normalized_zeta_mse": 0.5021442770957947,
+      "valid_normalized_alpha_mse": 0.05773540213704109,
+      "valid_normalized_mean_mse": 0.4762650430202484,
+      "valid_normalized_zeta_mse": 0.8947947025299072
+    },
+    {
+      "channel": 6,
+      "channel_name": "orient_yy",
+      "test_mse_delta_vs_baseline": 0.08859559893608093,
+      "test_normalized_alpha_mse": 0.19217970967292786,
+      "test_normalized_mean_mse": 0.3739725947380066,
+      "test_normalized_zeta_mse": 0.5557655096054077,
+      "valid_normalized_alpha_mse": 0.051136523485183716,
+      "valid_normalized_mean_mse": 0.32731902599334717,
+      "valid_normalized_zeta_mse": 0.6035014986991882
+    },
+    {
+      "channel": 7,
+      "channel_name": "strain_xx",
+      "test_mse_delta_vs_baseline": 0.2548994719982147,
+      "test_normalized_alpha_mse": 0.13145090639591217,
+      "test_normalized_mean_mse": 0.5402764678001404,
+      "test_normalized_zeta_mse": 0.949101984500885,
+      "valid_normalized_alpha_mse": 0.05318153277039528,
+      "valid_normalized_mean_mse": 0.4474196135997772,
+      "valid_normalized_zeta_mse": 0.8416576981544495
+    },
+    {
+      "channel": 8,
+      "channel_name": "strain_xy",
+      "test_mse_delta_vs_baseline": -0.03092917799949646,
+      "test_normalized_alpha_mse": 0.09883268177509308,
+      "test_normalized_mean_mse": 0.2544478178024292,
+      "test_normalized_zeta_mse": 0.4100629687309265,
+      "valid_normalized_alpha_mse": 0.0542786680161953,
+      "valid_normalized_mean_mse": 0.3764221966266632,
+      "valid_normalized_zeta_mse": 0.6985657215118408
+    },
+    {
+      "channel": 9,
+      "channel_name": "strain_yx",
+      "test_mse_delta_vs_baseline": 0.09518849849700928,
+      "test_normalized_alpha_mse": 0.13383038341999054,
+      "test_normalized_mean_mse": 0.38056549429893494,
+      "test_normalized_zeta_mse": 0.6273006200790405,
+      "valid_normalized_alpha_mse": 0.056121066212654114,
+      "valid_normalized_mean_mse": 0.5304422974586487,
+      "valid_normalized_zeta_mse": 1.0047634840011597
+    },
+    {
+      "channel": 10,
+      "channel_name": "strain_yy",
+      "test_mse_delta_vs_baseline": 0.05574154853820801,
+      "test_normalized_alpha_mse": 0.1042657420039177,
+      "test_normalized_mean_mse": 0.34111854434013367,
+      "test_normalized_zeta_mse": 0.577971339225769,
+      "valid_normalized_alpha_mse": 0.052060600370168686,
+      "valid_normalized_mean_mse": 0.41936513781547546,
+      "valid_normalized_zeta_mse": 0.7866696715354919
+    }
+  ]
+}

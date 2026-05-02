@@ -1,0 +1,156 @@
+{
+  "baseline": {
+    "test_normalized_alpha_mse": 0.1877240240573883,
+    "test_normalized_mean_mse": 0.28278765082359314,
+    "test_normalized_zeta_mse": 0.377851277589798,
+    "valid_normalized_alpha_mse": 0.08223666995763779,
+    "valid_normalized_mean_mse": 0.36867469549179077,
+    "valid_normalized_zeta_mse": 0.6551127433776855
+  },
+  "channel_names": [
+    "concentration",
+    "vel_x",
+    "vel_y",
+    "orient_xx",
+    "orient_xy",
+    "orient_yx",
+    "orient_yy",
+    "strain_xx",
+    "strain_xy",
+    "strain_yx",
+    "strain_yy"
+  ],
+  "per_channel": [
+    {
+      "channel": -1,
+      "channel_name": "baseline",
+      "test_normalized_alpha_mse": 0.1877240240573883,
+      "test_normalized_mean_mse": 0.28278765082359314,
+      "test_normalized_zeta_mse": 0.377851277589798,
+      "valid_normalized_alpha_mse": 0.08223666995763779,
+      "valid_normalized_mean_mse": 0.36867469549179077,
+      "valid_normalized_zeta_mse": 0.6551127433776855
+    },
+    {
+      "channel": 0,
+      "channel_name": "concentration",
+      "test_mse_delta_vs_baseline": 0.018832743167877197,
+      "test_normalized_alpha_mse": 0.11482265591621399,
+      "test_normalized_mean_mse": 0.30162039399147034,
+      "test_normalized_zeta_mse": 0.4884181320667267,
+      "valid_normalized_alpha_mse": 0.06369496881961823,
+      "valid_normalized_mean_mse": 0.3246397078037262,
+      "valid_normalized_zeta_mse": 0.5855844616889954
+    },
+    {
+      "channel": 1,
+      "channel_name": "vel_x",
+      "test_mse_delta_vs_baseline": 0.0868714451789856,
+      "test_normalized_alpha_mse": 0.18659766018390656,
+      "test_normalized_mean_mse": 0.36965909600257874,
+      "test_normalized_zeta_mse": 0.5527205467224121,
+      "valid_normalized_alpha_mse": 0.048714011907577515,
+      "valid_normalized_mean_mse": 0.31789523363113403,
+      "valid_normalized_zeta_mse": 0.5870764255523682
+    },
+    {
+      "channel": 2,
+      "channel_name": "vel_y",
+      "test_mse_delta_vs_baseline": -0.008547216653823853,
+      "test_normalized_alpha_mse": 0.14661166071891785,
+      "test_normalized_mean_mse": 0.2742404341697693,
+      "test_normalized_zeta_mse": 0.40186917781829834,
+      "valid_normalized_alpha_mse": 0.10051547735929489,
+      "valid_normalized_mean_mse": 0.3914702832698822,
+      "valid_normalized_zeta_mse": 0.6824250817298889
+    },
+    {
+      "channel": 3,
+      "channel_name": "orient_xx",
+      "test_mse_delta_vs_baseline": 0.02603408694267273,
+      "test_normalized_alpha_mse": 0.10707098990678787,
+      "test_normalized_mean_mse": 0.30882173776626587,
+      "test_normalized_zeta_mse": 0.5105724930763245,
+      "valid_normalized_alpha_mse": 0.04520547762513161,
+      "valid_normalized_mean_mse": 0.3072792589664459,
+      "valid_normalized_zeta_mse": 0.5693530440330505
+    },
+    {
+      "channel": 4,
+      "channel_name": "orient_xy",
+      "test_mse_delta_vs_baseline": -0.06433016061782837,
+      "test_normalized_alpha_mse": 0.19966989755630493,
+      "test_normalized_mean_mse": 0.21845749020576477,
+      "test_normalized_zeta_mse": 0.23724506795406342,
+      "valid_normalized_alpha_mse": 0.07418882101774216,
+      "valid_normalized_mean_mse": 0.37846115231513977,
+      "valid_normalized_zeta_mse": 0.6827334761619568
+    },
+    {
+      "channel": 5,
+      "channel_name": "orient_yx",
+      "test_mse_delta_vs_baseline": 0.09061667323112488,
+      "test_normalized_alpha_mse": 0.263374924659729,
+      "test_normalized_mean_mse": 0.373404324054718,
+      "test_normalized_zeta_mse": 0.48343372344970703,
+      "valid_normalized_alpha_mse": 0.07243625074625015,
+      "valid_normalized_mean_mse": 0.3082442283630371,
+      "valid_normalized_zeta_mse": 0.5440521836280823
+    },
+    {
+      "channel": 6,
+      "channel_name": "orient_yy",
+      "test_mse_delta_vs_baseline": 0.10003075003623962,
+      "test_normalized_alpha_mse": 0.29407376050949097,
+      "test_normalized_mean_mse": 0.38281840085983276,
+      "test_normalized_zeta_mse": 0.4715630114078522,
+      "valid_normalized_alpha_mse": 0.10480154305696487,
+      "valid_normalized_mean_mse": 0.3517291843891144,
+      "valid_normalized_zeta_mse": 0.5986568331718445
+    },
+    {
+      "channel": 7,
+      "channel_name": "strain_xx",
+      "test_mse_delta_vs_baseline": 0.04632657766342163,
+      "test_normalized_alpha_mse": 0.24278347194194794,
+      "test_normalized_mean_mse": 0.32911422848701477,
+      "test_normalized_zeta_mse": 0.4154449701309204,
+      "valid_normalized_alpha_mse": 0.11182907968759537,
+      "valid_normalized_mean_mse": 0.3699345588684082,
+      "valid_normalized_zeta_mse": 0.6280400156974792
+    },
+    {
+      "channel": 8,
+      "channel_name": "strain_xy",
+      "test_mse_delta_vs_baseline": 0.05524018406867981,
+      "test_normalized_alpha_mse": 0.25025612115859985,
+      "test_normalized_mean_mse": 0.33802783489227295,
+      "test_normalized_zeta_mse": 0.42579957842826843,
+      "valid_normalized_alpha_mse": 0.14419138431549072,
+      "valid_normalized_mean_mse": 0.3955073058605194,
+      "valid_normalized_zeta_mse": 0.6468232274055481
+    },
+    {
+      "channel": 9,
+      "channel_name": "strain_yx",
+      "test_mse_delta_vs_baseline": -0.016432344913482666,
+      "test_normalized_alpha_mse": 0.1668730527162552,
+      "test_normalized_mean_mse": 0.2663553059101105,
+      "test_normalized_zeta_mse": 0.36583754420280457,
+      "valid_normalized_alpha_mse": 0.10331364721059799,
+      "valid_normalized_mean_mse": 0.3210522532463074,
+      "valid_normalized_zeta_mse": 0.5387908816337585
+    },
+    {
+      "channel": 10,
+      "channel_name": "strain_yy",
+      "test_mse_delta_vs_baseline": 0.08351212739944458,
+      "test_normalized_alpha_mse": 0.22277586162090302,
+      "test_normalized_mean_mse": 0.3662997782230377,
+      "test_normalized_zeta_mse": 0.5098236799240112,
+      "valid_normalized_alpha_mse": 0.07845237851142883,
+      "valid_normalized_mean_mse": 0.35200637578964233,
+      "valid_normalized_zeta_mse": 0.6255603432655334
+    }
+  ]
+}
