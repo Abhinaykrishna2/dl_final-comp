@@ -12,6 +12,7 @@
 \usepackage{graphicx}
 \usepackage{booktabs}
 \usepackage{amsmath, amssymb}
+\usepackage[round]{natbib}
 \usepackage{hyperref}
 \usepackage{url}
 \usepackage{xcolor}
@@ -324,6 +325,53 @@ mask$0.60$ improves from $0.462 \to 0.247$ between $T=4$ and $T=12$, and
 mask$0.75$ from $0.542 \to 0.297 \to 0.259$. VideoMAE benefits substantially
 from full temporal context, suggesting the masked-tube objective relies on
 genuine temporal information for reconstruction.
+
+\paragraph{Top-PC alignment: how many leading directions encode $(\alpha,
+\zeta)$?} For each encoder we project the (z-scored) frozen embeddings onto
+their top-$K$ principal components and fit a closed-form ridge regression
+linear probe on just those $K$ features (no SGD); test MSE as $K$ grows tells
+us how concentrated the target-relevant signal is at the top of each
+encoder's spectrum. The result (Fig.~\ref{fig:pc-alignment}) is striking:
+\emph{supervised reaches its full performance at $K=2$} (test MSE $0.083$ at
+$K=2$ vs.\ $0.086$ at $K=174$), while \emph{VideoMAE needs essentially the
+entire 256-d embedding to reach its (worse) plateau} (mask$0.60$: $0.55 \to
+0.25$ from $K=2$ to $K=174$, a $2.2{\times}$ drop). This is the
+single sharpest demonstration of the rank-vs.-alignment trade-off in our
+report: the supervised encoder's leading $2$ principal directions are
+essentially the $\alpha$ and $\zeta$ directions, while VideoMAE's leading
+directions encode something else entirely and the target signal is smeared
+across the full spectrum.
+
+\paragraph{Per-class separability: how distinguishable are the 45 unique
+$(\alpha, \zeta)$ combinations in embedding space?} The dataset has exactly
+$45 = 5 \times 9$ unique parameter combinations. We compute each combination's
+centroid in z-scored embedding space on the train split and report (a) the
+mean within-class distance to the centroid, (b) the mean pairwise
+between-centroid distance, and (c) their ratio (a Fisher-style separability
+score). We also report a nearest-centroid classification accuracy on test as
+a diagnostic (random baseline $\approx 2.2\%$).
+
+\begin{itemize}[topsep=2pt,itemsep=2pt]
+    \item Supervised has Fisher separability $3.4$ vs.\ VideoMAE's
+    $1.3$ (a $2.6{\times}$ gap), driven by a $2{\times}$ smaller within-class
+    spread \emph{and} a $\sim$$30\%$ larger between-centroid distance.
+    \item Nearest-centroid test accuracy is $42\%$ for supervised vs.\ $4\%$
+    for VideoMAE -- supervised correctly classifies its target combinations
+    \emph{ten times more often} than VideoMAE despite the simpler 1-NN
+    decision rule.
+    \item Across all VideoMAE configurations (mask $0.60/0.75/0.90$, two
+    seeds) the Fisher score sits in a tight band $1.29$--$1.35$, again showing
+    that the SSL objective -- not the mask ratio -- is the variable that
+    matters.
+\end{itemize}
+
+Together, the channel-importance, frame-budget, top-PC-alignment, and
+per-class-separability analyses give four \emph{independent} quantitative
+characterizations of the same underlying phenomenon: VideoMAE's pixel
+reconstruction objective allocates representational capacity to the
+concentration scalar field and to high-rank but target-misaligned directions,
+producing an embedding space where the 45 governing parameter combinations
+are not cleanly separated.
 
 \section{Limitations and Ethics}
 
