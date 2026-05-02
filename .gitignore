@@ -5,3 +5,14 @@ __pycache__/
 data/
 .hf-cache-active_matter/
 wandb/
+
+# Large training-state checkpoints that exceed GitHub's 100 MB per-file limit.
+# encoder_*.pt files are kept (~74 MB each) since they are needed for
+# downstream linear-probe / kNN evaluation.
+artifacts/**/best.pt
+artifacts/**/last.pt
+artifacts/**/epoch_*.pt
+artifacts/**/wandb/
+
+artifacts/lp_cnext_unet96_avgmax/wandb/
+artifacts/knn_cnext_unet96_avgmax/wandb/
