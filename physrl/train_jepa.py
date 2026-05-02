@@ -533,6 +533,7 @@ def main() -> None:
             max_samples=args.max_train_samples,
             index_mode=args.train_index_mode,
             clip_selection=args.clip_selection,
+            include_labels=False,
         )
         valid_dataset = ActiveMatterWindowDataset(
             root=args.data_root,
@@ -544,6 +545,7 @@ def main() -> None:
             max_samples=args.max_valid_samples,
             index_mode=args.valid_index_mode,
             clip_selection=args.clip_selection,
+            include_labels=False,
         )
 
         train_sampler: Sampler[int] | None = None
@@ -608,6 +610,7 @@ def main() -> None:
 
         config_payload = vars(args).copy()
         config_payload["loss_type"] = loss_type
+        config_payload["uses_physical_labels"] = False
         config_payload["resolved_pred_coeff"] = pred_coeff
         config_payload["resolved_sigreg_coeff"] = sigreg_coeff
         config_payload["dims"] = dims

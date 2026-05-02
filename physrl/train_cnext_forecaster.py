@@ -220,6 +220,7 @@ def main() -> None:
             max_samples=args.max_train_samples,
             index_mode=args.train_index_mode,
             clip_selection=args.clip_selection,
+            include_labels=False,
         )
         valid_dataset = ActiveMatterWindowDataset(
             root=args.data_root,
@@ -231,6 +232,7 @@ def main() -> None:
             max_samples=args.max_valid_samples,
             index_mode=args.valid_index_mode,
             clip_selection=args.clip_selection,
+            include_labels=False,
         )
 
         train_sampler: Sampler[int] | None = None
@@ -287,6 +289,7 @@ def main() -> None:
         config_payload = vars(args).copy()
         config_payload["model_type"] = "cnext_unet_forecaster"
         config_payload["architecture_reference"] = "PolymathicAI The Well UNetConvNext, trained from scratch"
+        config_payload["uses_physical_labels"] = False
         config_payload["in_chans"] = sum(field.channels for field in train_dataset.field_specs)
         config_payload["field_channels"] = sum(field.channels for field in train_dataset.field_specs)
         config_payload["distributed"] = dist_state.enabled

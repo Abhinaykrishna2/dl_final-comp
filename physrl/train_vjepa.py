@@ -302,6 +302,7 @@ def main() -> None:
             max_samples=args.max_train_samples,
             index_mode=args.train_index_mode,
             clip_selection=args.clip_selection,
+            include_labels=False,
         )
         valid_dataset = ActiveMatterWindowDataset(
             root=args.data_root,
@@ -313,6 +314,7 @@ def main() -> None:
             max_samples=args.max_valid_samples,
             index_mode=args.valid_index_mode,
             clip_selection=args.clip_selection,
+            include_labels=False,
         )
 
         train_sampler: Sampler[int] | None = None
@@ -364,6 +366,7 @@ def main() -> None:
         total_steps = max(1, args.epochs * len(train_loader))
         warmup_steps = min(max(0, int(args.warmup_epochs * len(train_loader))), max(total_steps - 1, 0))
         config_payload = vars(args).copy()
+        config_payload["uses_physical_labels"] = False
         config_payload["dims"] = dims
         config_payload["num_res_blocks"] = blocks
         config_payload["in_chans"] = sum(field.channels for field in train_dataset.field_specs)

@@ -70,6 +70,7 @@ class ActiveMatterWindowDataset(Dataset):
         max_open_files: int = 4,
         index_mode: str = "sliding_window",
         clip_selection: str = "center",
+        include_labels: bool = True,
     ) -> None:
         if context_frames < 1:
             raise ValueError("context_frames must be >= 1")
@@ -94,6 +95,7 @@ class ActiveMatterWindowDataset(Dataset):
         self.max_open_files = max_open_files
         self.index_mode = index_mode
         self.clip_selection = clip_selection
+        self.include_labels = include_labels
         self._open_files: OrderedDict[str, h5py.File] | None = None
 
         self.files = self._discover_files()
@@ -140,7 +142,10 @@ class ActiveMatterWindowDataset(Dataset):
                 probe = h5[self.field_specs[0].path]
                 n_sims = int(probe.shape[0])
                 n_steps = int(probe.shape[1])
-                labels = self._extract_label_table(h5, n_sims)
+                if self.include_labels:
+                    labels = self._extract_label_table(h5, n_sims)
+                else:
+                    labels = np.zeros((n_sims, len(LABEL_NAMES)), dtype=np.float32)
             file_infos.append(FileInfo(path=path, n_sims=n_sims, n_steps=n_steps, labels=labels))
         return file_infos
 
