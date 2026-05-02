@@ -1,8 +1,7 @@
-# `videomae/` -- Person B's contribution
+# `videomae/`
 
-This package is Person B's half of the final project. It implements a
-**VideoMAE / SimMIM hybrid masked-autoencoder SSL track** on the
-**byte-identical 3D ConvNeXt encoder** that Person A's `physrl/` package uses
+This package implements a **VideoMAE / SimMIM hybrid masked-autoencoder SSL track** on the
+**byte-identical 3D ConvNeXt encoder** that `physrl/` package uses
 for SIGReg-JEPA, plus an end-to-end **supervised baseline** and a **collapse /
 isotropy analysis suite**. The two streams meet only in the joint report.
 
@@ -82,7 +81,7 @@ python -m videomae.plot_from_json \
 | Schedule | cosine, 2-epoch warmup | both papers |
 | Precision | BF16 autocast | B200 native |
 
-## Constraint check (matches the assignment's Section 8 hard rules)
+## Constraint check
 
 - Train from scratch, no pretrained weights: yes (no checkpoint loading from external sources).
 - Total params < 100 M: 8.07 M (encoder + decoder + mask token).
