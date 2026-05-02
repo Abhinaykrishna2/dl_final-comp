@@ -1,30 +1,60 @@
 {
   "data": {
-    "Supervised": {
+    "supervised": {
       "analysis": true,
       "history": true,
       "knn": true,
       "linear_probe": true
     },
-    "VideoMAE-50ep": {
+    "supervised_s43": {
       "analysis": true,
       "history": true,
       "knn": true,
       "linear_probe": true
     },
-    "VideoMAE-mask60": {
+    "supervised_s44": {
       "analysis": true,
       "history": true,
       "knn": true,
       "linear_probe": true
     },
-    "VideoMAE-mask75": {
+    "videomae_main": {
       "analysis": true,
       "history": true,
       "knn": true,
       "linear_probe": true
     },
-    "VideoMAE-mask90": {
+    "videomae_main_50ep_s46": {
+      "analysis": true,
+      "history": true,
+      "knn": true,
+      "linear_probe": true
+    },
+    "videomae_main_s43": {
+      "analysis": true,
+      "history": true,
+      "knn": true,
+      "linear_probe": true
+    },
+    "videomae_main_s44": {
+      "analysis": true,
+      "history": true,
+      "knn": true,
+      "linear_probe": true
+    },
+    "videomae_mask75": {
+      "analysis": true,
+      "history": true,
+      "knn": true,
+      "linear_probe": true
+    },
+    "videomae_mask90": {
+      "analysis": true,
+      "history": true,
+      "knn": true,
+      "linear_probe": true
+    },
+    "videomae_mask90_s45": {
       "analysis": true,
       "history": true,
       "knn": true,
@@ -34,24 +64,44 @@
   "pdf": "/root/dl_final-comp/videomae/artifacts/figures/figures.pdf",
   "runs": [
     {
-      "label": "Supervised",
+      "label": "supervised",
       "run_dir": "/root/dl_final-comp/videomae/artifacts/supervised"
     },
     {
-      "label": "VideoMAE-mask60",
+      "label": "supervised_s43",
+      "run_dir": "/root/dl_final-comp/videomae/artifacts/supervised_s43"
+    },
+    {
+      "label": "supervised_s44",
+      "run_dir": "/root/dl_final-comp/videomae/artifacts/supervised_s44"
+    },
+    {
+      "label": "videomae_main",
       "run_dir": "/root/dl_final-comp/videomae/artifacts/videomae_main"
     },
     {
-      "label": "VideoMAE-50ep",
+      "label": "videomae_main_s43",
+      "run_dir": "/root/dl_final-comp/videomae/artifacts/videomae_main_s43"
+    },
+    {
+      "label": "videomae_main_s44",
+      "run_dir": "/root/dl_final-comp/videomae/artifacts/videomae_main_s44"
+    },
+    {
+      "label": "videomae_main_50ep_s46",
       "run_dir": "/root/dl_final-comp/videomae/artifacts/videomae_main_50ep_s46"
     },
     {
-      "label": "VideoMAE-mask75",
+      "label": "videomae_mask75",
       "run_dir": "/root/dl_final-comp/videomae/artifacts/videomae_mask75"
     },
     {
-      "label": "VideoMAE-mask90",
+      "label": "videomae_mask90",
       "run_dir": "/root/dl_final-comp/videomae/artifacts/videomae_mask90"
+    },
+    {
+      "label": "videomae_mask90_s45",
+      "run_dir": "/root/dl_final-comp/videomae/artifacts/videomae_mask90_s45"
     }
   ]
 }

@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.22 (TeX Live 2022/dev/Debian) (preloaded format=pdflatex 2026.5.2)  2 MAY 2026 10:42
+This is pdfTeX, Version 3.141592653-2.6-1.40.22 (TeX Live 2022/dev/Debian) (preloaded format=pdflatex 2026.5.2)  2 MAY 2026 12:29
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -383,36 +383,36 @@ File: l3backend-pdftex.def 2022-01-12 L3 backend support: PDF output (pdfTeX)
 (./report.aux)
 \openout1 = `report.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 29.
-LaTeX Font Info:    ... okay on input line 29.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 29.
-LaTeX Font Info:    ... okay on input line 29.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 29.
-LaTeX Font Info:    ... okay on input line 29.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 29.
-LaTeX Font Info:    ... okay on input line 29.
-LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 29.
-LaTeX Font Info:    ... okay on input line 29.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 29.
-LaTeX Font Info:    ... okay on input line 29.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 29.
-LaTeX Font Info:    ... okay on input line 29.
-LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 29.
-LaTeX Font Info:    ... okay on input line 29.
-LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 29.
-LaTeX Font Info:    ... okay on input line 29.
-LaTeX Info: Redefining \microtypecontext on input line 29.
-Package microtype Info: Applying patch `item' on input line 29.
-Package microtype Info: Applying patch `toc' on input line 29.
-Package microtype Info: Applying patch `eqnum' on input line 29.
-Package microtype Info: Applying patch `footnote' on input line 29.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 32.
+LaTeX Font Info:    ... okay on input line 32.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 32.
+LaTeX Font Info:    ... okay on input line 32.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 32.
+LaTeX Font Info:    ... okay on input line 32.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 32.
+LaTeX Font Info:    ... okay on input line 32.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 32.
+LaTeX Font Info:    ... okay on input line 32.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 32.
+LaTeX Font Info:    ... okay on input line 32.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 32.
+LaTeX Font Info:    ... okay on input line 32.
+LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 32.
+LaTeX Font Info:    ... okay on input line 32.
+LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 32.
+LaTeX Font Info:    ... okay on input line 32.
+LaTeX Info: Redefining \microtypecontext on input line 32.
+Package microtype Info: Applying patch `item' on input line 32.
+Package microtype Info: Applying patch `toc' on input line 32.
+Package microtype Info: Applying patch `eqnum' on input line 32.
+Package microtype Info: Applying patch `footnote' on input line 32.
 Package microtype Info: Generating PDF output.
 Package microtype Info: Character protrusion enabled (level 2).
 Package microtype Info: Using default protrusion set `alltext'.
 Package microtype Info: Automatic font expansion enabled (level 2),
 (microtype)             stretch: 20, shrink: 20, step: 1, non-selected.
 Package microtype Info: Using default expansion set `alltext-nott'.
-LaTeX Info: Redefining \showhyphens on input line 29.
+LaTeX Info: Redefining \showhyphens on input line 32.
 Package microtype Info: No adjustment of tracking.
 Package microtype Info: No adjustment of interword spacing.
 Package microtype Info: No adjustment of character kerning.
@@ -442,7 +442,7 @@ Package epstopdf-base Info: Redefining graphics rule for `.eps' on input line 4
 File: epstopdf-sys.cfg 2010/07/13 v1.3 Configuration of (r)epstopdf for TeX Liv
 e
 ))
-Package hyperref Info: Link coloring OFF on input line 29.
+Package hyperref Info: Link coloring OFF on input line 32.
 
 (/usr/share/texlive/texmf-dist/tex/latex/hyperref/nameref.sty
 Package: nameref 2021-04-02 v2.47 Cross-referencing by name of section
@@ -455,9 +455,9 @@ Package: gettitlestring 2019/12/15 v1.6 Cleanup title references (HO)
 )
 \c@section@level=\count305
 )
-LaTeX Info: Redefining \ref on input line 29.
-LaTeX Info: Redefining \pageref on input line 29.
-LaTeX Info: Redefining \nameref on input line 29.
+LaTeX Info: Redefining \ref on input line 32.
+LaTeX Info: Redefining \pageref on input line 32.
+LaTeX Info: Redefining \nameref on input line 32.
 
 (./report.out) (./report.out)
 \@outlinefile=\write3
@@ -474,15 +474,15 @@ Package caption Info: End \AtBeginDocument code.
 * layout: <same size as paper>
 * layoutoffset:(h,v)=(0.0pt,0.0pt)
 * modes: 
-* h-part:(L,W,R)=(72.26999pt, 469.75502pt, 72.26999pt)
-* v-part:(T,H,B)=(72.26999pt, 650.43001pt, 72.26999pt)
+* h-part:(L,W,R)=(61.42993pt, 491.43513pt, 61.42993pt)
+* v-part:(T,H,B)=(61.42993pt, 672.11012pt, 61.42993pt)
 * \paperwidth=614.295pt
 * \paperheight=794.96999pt
-* \textwidth=469.75502pt
-* \textheight=650.43001pt
-* \oddsidemargin=0.0pt
-* \evensidemargin=0.0pt
-* \topmargin=-37.0pt
+* \textwidth=491.43513pt
+* \textheight=672.11012pt
+* \oddsidemargin=-10.84006pt
+* \evensidemargin=-10.84006pt
+* \topmargin=-47.84006pt
 * \headheight=12.0pt
 * \headsep=25.0pt
 * \topskip=10.0pt
@@ -500,7 +500,7 @@ Package caption Info: End \AtBeginDocument code.
 * \@reversemarginfalse
 * (1in=72.27pt=25.4mm, 1cm=28.453pt)
 
-LaTeX Font Info:    Trying to load font information for U+msa on input line 31.
+LaTeX Font Info:    Trying to load font information for U+msa on input line 34.
 
 (/usr/share/texlive/texmf-dist/tex/latex/amsfonts/umsa.fd
 File: umsa.fd 2013/01/14 v3.01 AMS symbols A
@@ -508,7 +508,7 @@ File: umsa.fd 2013/01/14 v3.01 AMS symbols A
 (/usr/share/texlive/texmf-dist/tex/latex/microtype/mt-msa.cfg
 File: mt-msa.cfg 2006/02/04 v1.1 microtype config. file: AMS symbols (a) (RS)
 )
-LaTeX Font Info:    Trying to load font information for U+msb on input line 31.
+LaTeX Font Info:    Trying to load font information for U+msb on input line 34.
 
 
 (/usr/share/texlive/texmf-dist/tex/latex/amsfonts/umsb.fd
@@ -524,107 +524,103 @@ Package microtype Info: Loading generic protrusion settings for font family
  [1
 
 {/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}] [2]
-Overfull \hbox (188.48784pt too wide) in paragraph at lines 225--242
+Overfull \hbox (166.80772pt too wide) in paragraph at lines 208--225
  [][] 
  []
 
 [3]
-
-LaTeX Warning: Reference `fig:cka' on page 4 undefined on input line 290.
-
-
-LaTeX Warning: Reference `fig:collapse' on page 4 undefined on input line 304.
-
-[4]
-
-LaTeX Warning: Reference `fig:pc-alignment' on page 5 undefined on input line 3
-54.
-
-[5]
-
-LaTeX Warning: Reference `fig:recon-grids' on page 6 undefined on input line 41
-4.
-
-[6]
-Overfull \hbox (17.87341pt too wide) in paragraph at lines 501--510
- [][] 
- []
-
-
-Overfull \hbox (8.55156pt too wide) in paragraph at lines 537--542
- []\OT1/cmr/bx/n/10 (-20) Figures.[] \OT1/cmr/m/n/10 (-20) The full PDF fig-ure
-s live in \OT1/cmtt/m/n/10 videomae/artifacts/ \OT1/cmr/m/n/10 (-20) and are re
--built by \OT1/cmtt/m/n/10 videomae/plot[]from[]json.py\OT1/cmr/m/n/10 (-20) ,
- []
-
-
-Overfull \hbox (92.17992pt too wide) in paragraph at lines 537--542
+<../artifacts/ablations/channel_ablation.pdf, id=142, 722.7pt x 361.35pt>
+File: ../artifacts/ablations/channel_ablation.pdf Graphic file (type pdf)
+<use ../artifacts/ablations/channel_ablation.pdf>
+Package pdftex.def Info: ../artifacts/ablations/channel_ablation.pdf  used on i
+nput line 323.
+(pdftex.def)             Requested size: 240.80591pt x 120.40375pt.
+<../artifacts/ablations/frame_ablation.pdf, id=143, 505.89pt x 361.35pt>
+File: ../artifacts/ablations/frame_ablation.pdf Graphic file (type pdf)
+<use ../artifacts/ablations/frame_ablation.pdf>
+Package pdftex.def Info: ../artifacts/ablations/frame_ablation.pdf  used on inp
+ut line 325.
+(pdftex.def)             Requested size: 240.80591pt x 172.00694pt.
+<../artifacts/cka/cka_valid.pdf, id=145, 650.43pt x 614.295pt>
+File: ../artifacts/cka/cka_valid.pdf Graphic file (type pdf)
+<use ../artifacts/cka/cka_valid.pdf>
+Package pdftex.def Info: ../artifacts/cka/cka_valid.pdf  used on input line 353
+.
+(pdftex.def)             Requested size: 228.76488pt x 216.05627pt.
+<../artifacts/pc_alignment/pc_alignment.pdf, id=146, 578.16pt x 361.35pt>
+File: ../artifacts/pc_alignment/pc_alignment.pdf Graphic file (type pdf)
+<use ../artifacts/pc_alignment/pc_alignment.pdf>
+Package pdftex.def Info: ../artifacts/pc_alignment/pc_alignment.pdf  used on in
+put line 359.
+(pdftex.def)             Requested size: 228.76488pt x 142.97705pt.
+ [4] [5 <../artifacts/ablations/channel_ablation.pdf> <../artifacts/ablations/f
+rame_ablation.pdf>] [6 <../artifacts/cka/cka_valid.pdf> <../artifacts/pc_alignm
+ent/pc_alignment.pdf>]
+Overfull \hbox (70.4998pt too wide) in paragraph at lines 572--577
 \OT1/cmtt/m/n/10 videomae/plot[]ablations.py\OT1/cmr/m/n/10 (-20) , \OT1/cmtt/m
 /n/10 videomae/cka[]compare.py\OT1/cmr/m/n/10 (-20) , \OT1/cmtt/m/n/10 videomae
 /pc[]alignment.py\OT1/cmr/m/n/10 (-20) , \OT1/cmtt/m/n/10 videomae/visualize[]e
 mbeddings.py\OT1/cmr/m/n/10 (-20) ,
  []
 
+[7]
+LaTeX Font Info:    Trying to load font information for OMS+cmtt on input line 
+584.
+LaTeX Font Info:    No file OMScmtt.fd. on input line 584.
 
-LaTeX Warning: Reference `fig:collapse' on page 7 undefined on input line 543.
+
+LaTeX Font Warning: Font shape `OMS/cmtt/m/n' undefined
+(Font)              using `OMS/cmsy/m/n' instead
+(Font)              for symbol `textbraceleft' on input line 584.
 
 
-Overfull \hbox (6.71436pt too wide) in paragraph at lines 543--546
-[]\OT1/cmr/m/n/10 (-20) Fig. []: per-dim em-bed-ding std (sorted) for ev-ery en
--coder. \OT1/cmtt/m/n/10 videomae/artifacts/figures/figures.pdf\OT1/cmr/m/n/10 
-(-20) ,
+Overfull \hbox (105.11557pt too wide) in paragraph at lines 589--591
+[]\OT1/cmtt/m/n/10 videomae/artifacts/per[]channel[]recon[]mse/per[]channel[]re
+con[]mse.pdf \OT1/cmr/m/n/10 (-20) and \OT1/cmtt/m/n/10 class[]separability/cla
+ss[]separability.pdf\OT1/cmr/m/n/10 (-20) :
  []
 
+[8] (./report.aux)
 
-LaTeX Warning: Reference `fig:cka' on page 7 undefined on input line 546.
-
-
-LaTeX Warning: Reference `fig:pc-alignment' on page 7 undefined on input line 5
-48.
-
-
-LaTeX Warning: Reference `fig:recon-grids' on page 7 undefined on input line 55
-0.
-
-[7] [8] (./report.aux)
-
-LaTeX Warning: There were undefined references.
+LaTeX Font Warning: Some font shapes were not available, defaults substituted.
 
 Package rerunfilecheck Info: File `report.out' has not changed.
-(rerunfilecheck)             Checksum: 8ED4D03B61D07CD1DE1AB7D84059FC5F;1995.
+(rerunfilecheck)             Checksum: D9F2313E3E5A67EC9DB69144C466C336;2089.
  ) 
 Here is how much of TeX's memory you used:
- 14728 strings out of 480247
- 232849 string characters out of 5896152
- 578815 words of memory out of 5000000
- 32226 multiletter control sequences out of 15000+600000
- 487673 words of font info for 177 fonts, out of 8000000 for 9000
+ 14782 strings out of 480247
+ 234428 string characters out of 5896152
+ 578769 words of memory out of 5000000
+ 32262 multiletter control sequences out of 15000+600000
+ 488393 words of font info for 184 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
- 60i,10n,63p,1003b,484s stack positions out of 5000i,500n,10000p,200000b,80000s
+ 60i,10n,63p,1003b,461s stack positions out of 5000i,500n,10000p,200000b,80000s
  </root/.texlive2021/texmf-var/fonts/pk/ljfour/jknappen/ec/tcrm1000.600pk></u
 sr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx10.pfb></usr/sha
 re/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx12.pfb></usr/share/tex
-live/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx9.pfb></usr/share/texlive/te
-xmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb></usr/share/texlive/texmf-di
-st/fonts/type1/public/amsfonts/cm/cmmi10.pfb></usr/share/texlive/texmf-dist/fon
-ts/type1/public/amsfonts/cm/cmmi7.pfb></usr/share/texlive/texmf-dist/fonts/type
-1/public/amsfonts/cm/cmmi9.pfb></usr/share/texlive/texmf-dist/fonts/type1/publi
-c/amsfonts/cm/cmr10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfo
-nts/cm/cmr12.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/
-cmr17.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr5.pf
-b></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr7.pfb></usr/
-share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr9.pfb></usr/share/te
-xlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></usr/share/texlive/
-texmf-dist/fonts/type1/public/amsfonts/cm/cmsy7.pfb></usr/share/texlive/texmf-d
-ist/fonts/type1/public/amsfonts/cm/cmsy9.pfb></usr/share/texlive/texmf-dist/fon
-ts/type1/public/amsfonts/cm/cmti10.pfb></usr/share/texlive/texmf-dist/fonts/typ
-e1/public/amsfonts/cm/cmti9.pfb></usr/share/texlive/texmf-dist/fonts/type1/publ
-ic/amsfonts/cm/cmtt10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/ams
-fonts/cm/cmtt9.pfb>
-Output written on report.pdf (8 pages, 317883 bytes).
+live/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx8.pfb></usr/share/texlive/te
+xmf-dist/fonts/type1/public/amsfonts/cm/cmbx9.pfb></usr/share/texlive/texmf-dis
+t/fonts/type1/public/amsfonts/cm/cmex10.pfb></usr/share/texlive/texmf-dist/font
+s/type1/public/amsfonts/cm/cmmi10.pfb></usr/share/texlive/texmf-dist/fonts/type
+1/public/amsfonts/cm/cmmi7.pfb></usr/share/texlive/texmf-dist/fonts/type1/publi
+c/amsfonts/cm/cmmi8.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfo
+nts/cm/cmmi9.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/
+cmr10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr12.p
+fb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr17.pfb></us
+r/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr7.pfb></usr/share/
+texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmr8.pfb></usr/share/texlive/
+texmf-dist/fonts/type1/public/amsfonts/cm/cmr9.pfb></usr/share/texlive/texmf-di
+st/fonts/type1/public/amsfonts/cm/cmsy10.pfb></usr/share/texlive/texmf-dist/fon
+ts/type1/public/amsfonts/cm/cmsy7.pfb></usr/share/texlive/texmf-dist/fonts/type
+1/public/amsfonts/cm/cmsy8.pfb></usr/share/texlive/texmf-dist/fonts/type1/publi
+c/amsfonts/cm/cmsy9.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfo
+nts/cm/cmti10.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm
+/cmti9.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmtt10
+.pfb></usr/share/texlive/texmf-dist/fonts/type1/public/amsfonts/cm/cmtt9.pfb>
+Output written on report.pdf (8 pages, 424628 bytes).
 PDF statistics:
- 304 PDF objects out of 1000 (max. 8388607)
- 248 compressed objects within 3 object streams
- 59 named destinations out of 1000 (max. 500000)
- 40033 words of extra memory for PDF output out of 42996 (max. 10000000)
+ 543 PDF objects out of 1000 (max. 8388607)
+ 289 compressed objects within 3 object streams
+ 55 named destinations out of 1000 (max. 500000)
+ 42109 words of extra memory for PDF output out of 42996 (max. 10000000)
 

@@ -1,0 +1,6 @@
+{
+  "checkpoint": "videomae/artifacts/videomae_main/encoder_best.pt",
+  "context_frames": 16,
+  "in_chans": 11,
+  "label": "videomae_main"
+}

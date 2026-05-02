@@ -22,9 +22,9 @@
 \citation{qu2026spatiotemporal,balestriero2023cookbook}
 \citation{ohana2025well}
 \citation{qu2026spatiotemporal}
+\citation{balestriero2026lejepa}
 \@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1}\protected@file@percent }
 \newlabel{sec:intro}{{1}{1}{Introduction}{section.1}{}}
-\citation{balestriero2026lejepa}
 \citation{tong2022videomae}
 \citation{xie2022simmim}
 \@writefile{toc}{\contentsline {section}{\numberline {2}Setup}{2}{section.2}\protected@file@percent }
@@ -41,46 +41,48 @@
 \citation{qu2026spatiotemporal}
 \citation{qu2026spatiotemporal}
 \citation{xie2022simmim}
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Active matter parameter prediction. Z-scored MSE (lower is better) on the test split with a frozen encoder, evaluated with both a single linear probe and $k$-NN regression. Effective rank and Epps--Pulley distance are computed on the validation embedding set. We report mean$\pm $std across seeds where available. Best per column among \emph  {our} entries in \textbf  {bold}.\relax }}{3}{table.caption.1}\protected@file@percent }
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{tab:main-results}{{1}{3}{Active matter parameter prediction. Z-scored MSE (lower is better) on the test split with a frozen encoder, evaluated with both a single linear probe and $k$-NN regression. Effective rank and Epps--Pulley distance are computed on the validation embedding set. We report mean$\pm $std across seeds where available. Best per column among \emph {our} entries in \textbf {bold}.\relax }{table.caption.1}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Supervised baseline (Person B)}{3}{subsection.3.3}\protected@file@percent }
 \newlabel{sec:method-supervised}{{3.3}{3}{Supervised baseline (Person B)}{subsection.3.3}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {4}Results}{3}{section.4}\protected@file@percent }
 \newlabel{sec:results}{{4}{3}{Results}{section.4}{}}
 \@writefile{toc}{\contentsline {paragraph}{(1) Isotropy / rank inversion.}{3}{section*.2}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{(2) Mask-ratio sweep.}{3}{section*.3}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Active matter parameter prediction. Z-scored MSE (lower is better) on the test split with a frozen encoder, evaluated with both a single linear probe and $k$-NN regression. Effective rank and Epps--Pulley distance are computed on the validation embedding set. We report mean$\pm $std across seeds where available. Best per column among \emph  {our} entries in \textbf  {bold}.\relax }}{4}{table.caption.1}\protected@file@percent }
-\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
-\newlabel{tab:main-results}{{1}{4}{Active matter parameter prediction. Z-scored MSE (lower is better) on the test split with a frozen encoder, evaluated with both a single linear probe and $k$-NN regression. Effective rank and Epps--Pulley distance are computed on the validation embedding set. We report mean$\pm $std across seeds where available. Best per column among \emph {our} entries in \textbf {bold}.\relax }{table.caption.1}{}}
-\@writefile{toc}{\contentsline {paragraph}{(2b) Reconstruction loss is decoupled from downstream MSE.}{4}{section*.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{(2b) Reconstruction loss is decoupled from downstream MSE.}{3}{section*.4}\protected@file@percent }
+\citation{balestriero2026lejepa}
 \@writefile{toc}{\contentsline {paragraph}{(3) Seed stability.}{4}{section*.5}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {5}Analysis}{4}{section.5}\protected@file@percent }
 \newlabel{sec:analysis}{{5}{4}{Analysis}{section.5}{}}
-\@writefile{toc}{\contentsline {paragraph}{Collapse via per-dim std.}{4}{section*.6}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Effective rank and participation ratio.}{4}{section*.7}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Condition number and off-diagonal correlation.}{4}{section*.8}\protected@file@percent }
-\citation{balestriero2026lejepa}
-\@writefile{toc}{\contentsline {paragraph}{Epps--Pulley distance to $\mathcal  {N}(0, I)$.}{5}{section*.9}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Channel-importance ablation.}{5}{section*.10}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Frame-budget ablation.}{5}{section*.11}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Top-PC alignment: how many leading directions encode $(\alpha , \zeta )$?}{5}{section*.12}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Per-class separability: how distinguishable are the 45 unique $(\alpha , \zeta )$ combinations in embedding space?}{5}{section*.13}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Per-channel reconstruction MSE.}{5}{section*.14}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Channel-importance ablation.}{4}{section*.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Frame-budget ablation.}{4}{section*.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Top-PC alignment: how many leading directions encode $(\alpha , \zeta )$?}{4}{section*.9}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Per-class separability: how distinguishable are the 45 unique $(\alpha , \zeta )$ combinations in embedding space?}{4}{section*.11}\protected@file@percent }
 \citation{qu2026spatiotemporal}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces Left: $\Delta $test-MSE when each input channel is zeroed at inference time, per encoder. VideoMAE's reliance on the concentration scalar field (${+}0.26$) dwarfs supervised's (${+}0.029$). Right: test MSE as a function of the number of input frames the encoder sees. Supervised saturates at $T=8$; VideoMAE benefits from the full temporal context.\relax }}{5}{figure.caption.8}\protected@file@percent }
+\newlabel{fig:ablations}{{1}{5}{Left: $\Delta $test-MSE when each input channel is zeroed at inference time, per encoder. VideoMAE's reliance on the concentration scalar field (${+}0.26$) dwarfs supervised's (${+}0.029$). Right: test MSE as a function of the number of input frames the encoder sees. Supervised saturates at $T=8$; VideoMAE benefits from the full temporal context.\relax }{figure.caption.8}{}}
+\@writefile{toc}{\contentsline {paragraph}{Per-channel reconstruction MSE.}{5}{section*.12}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {6}Discussion}{5}{section.6}\protected@file@percent }
+\newlabel{sec:discussion}{{6}{5}{Discussion}{section.6}{}}
+\citation{qu2026spatiotemporal}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces (a) The 7 25-epoch VideoMAE configurations form one block (CKA $\geq 0.94$); the 3 supervised seeds form another (CKA $\geq 0.96$); cross-block CKA is $0.70$--$0.78$. The 50-epoch VideoMAE (\texttt  {VMAE-m60-50ep}) sits between, indicating that training length shifts the encoder to a different regime. (b) Test MSE of a closed-form ridge linear probe on the top-$K$ principal components only. Supervised saturates at $K=2$ (the dimensionality of $(\alpha ,\zeta )$); VideoMAE is essentially flat for $K\!\leq \!8$ and only catches up at $K=174$.\relax }}{6}{figure.caption.10}\protected@file@percent }
+\newlabel{fig:cka-pc}{{2}{6}{(a) The 7 25-epoch VideoMAE configurations form one block (CKA $\geq 0.94$); the 3 supervised seeds form another (CKA $\geq 0.96$); cross-block CKA is $0.70$--$0.78$. The 50-epoch VideoMAE (\texttt {VMAE-m60-50ep}) sits between, indicating that training length shifts the encoder to a different regime. (b) Test MSE of a closed-form ridge linear probe on the top-$K$ principal components only. Supervised saturates at $K=2$ (the dimensionality of $(\alpha ,\zeta )$); VideoMAE is essentially flat for $K\!\leq \!8$ and only catches up at $K=174$.\relax }{figure.caption.10}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {7}Limitations and Ethics}{6}{section.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Compute accounting.}{6}{section*.13}\protected@file@percent }
 \citation{ohana2025well}
 \citation{ohana2025well}
-\@writefile{toc}{\contentsline {section}{\numberline {6}Limitations and Ethics}{6}{section.6}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Compute accounting.}{6}{section*.15}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces The \texttt  {active\_matter} subset of \emph  {The Well} \citep  {ohana2025well} as we use it.\relax }}{7}{table.caption.17}\protected@file@percent }
+\newlabel{tab:dataset}{{2}{7}{The \texttt {active\_matter} subset of \emph {The Well} \citep {ohana2025well} as we use it.\relax }{table.caption.17}{}}
+\@writefile{toc}{\contentsline {paragraph}{Dataset statistics (Tab.\nobreakspace  {}\ref  {tab:dataset}).}{7}{table.caption.17}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Channel-importance deltas (Tab.\nobreakspace  {}\ref  {tab:channel-ablation}).}{7}{section*.18}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Channel-importance ablation: $\Delta $test-MSE (z-scored) when each input channel is zeroed. Bold = top channel for that encoder.\relax }}{7}{table.caption.19}\protected@file@percent }
+\newlabel{tab:channel-ablation}{{3}{7}{Channel-importance ablation: $\Delta $test-MSE (z-scored) when each input channel is zeroed. Bold = top channel for that encoder.\relax }{table.caption.19}{}}
+\@writefile{toc}{\contentsline {paragraph}{Per-channel reconstruction MSE (Tab.\nobreakspace  {}\ref  {tab:recon-channel-mse}).}{7}{section*.20}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Per-channel masked-position reconstruction MSE. Concentration is reconstructed $\sim $$2.5{\times }$ better than orientation/strain tensors.\relax }}{7}{table.caption.21}\protected@file@percent }
+\newlabel{tab:recon-channel-mse}{{4}{7}{Per-channel masked-position reconstruction MSE. Concentration is reconstructed $\sim $$2.5{\times }$ better than orientation/strain tensors.\relax }{table.caption.21}{}}
 \bibcite{qu2026spatiotemporal}{{1}{2026}{{Qu et al.}}{{}}}
 \bibcite{tong2022videomae}{{2}{2022}{{Tong et al.}}{{}}}
-\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces The \texttt  {active\_matter} subset of \emph  {The Well} \citep  {ohana2025well} as we use it.\relax }}{7}{table.caption.19}\protected@file@percent }
-\newlabel{tab:dataset}{{2}{7}{The \texttt {active\_matter} subset of \emph {The Well} \citep {ohana2025well} as we use it.\relax }{table.caption.19}{}}
-\@writefile{toc}{\contentsline {paragraph}{Dataset statistics (Tab.\nobreakspace  {}\ref  {tab:dataset}).}{7}{table.caption.19}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Channel-importance deltas (Tab.\nobreakspace  {}\ref  {tab:channel-ablation}).}{7}{section*.20}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Per-channel ablation $\Delta $test-MSE (z-scored). Bold = top channel for that encoder.\relax }}{7}{table.caption.21}\protected@file@percent }
-\newlabel{tab:channel-ablation}{{3}{7}{Per-channel ablation $\Delta $test-MSE (z-scored). Bold = top channel for that encoder.\relax }{table.caption.21}{}}
-\@writefile{toc}{\contentsline {paragraph}{Per-channel reconstruction MSE (Tab.\nobreakspace  {}\ref  {tab:recon-channel-mse}).}{7}{section*.22}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Per-channel masked-position reconstruction MSE for each VideoMAE configuration. The concentration scalar field is reconstructed $\sim $$2.5{\times }$ better than orientation/strain tensors.\relax }}{7}{table.caption.23}\protected@file@percent }
-\newlabel{tab:recon-channel-mse}{{4}{7}{Per-channel masked-position reconstruction MSE for each VideoMAE configuration. The concentration scalar field is reconstructed $\sim $$2.5{\times }$ better than orientation/strain tensors.\relax }{table.caption.23}{}}
-\@writefile{toc}{\contentsline {paragraph}{Figures.}{7}{section*.24}\protected@file@percent }
 \bibcite{xie2022simmim}{{3}{2022}{{Xie et al.}}{{}}}
 \bibcite{balestriero2026lejepa}{{4}{2026}{{Balestriero \& LeCun}}{{}}}
 \bibcite{bardes2021vicreg}{{5}{2021}{{Bardes et al.}}{{}}}
@@ -88,4 +90,5 @@
 \bibcite{ohana2025well}{{7}{2025}{{Ohana et al.}}{{}}}
 \bibcite{balestriero2023cookbook}{{8}{2023}{{Balestriero et al.}}{{}}}
 \bibcite{he2022mae}{{9}{2022}{{He et al.}}{{}}}
+\@writefile{toc}{\contentsline {paragraph}{Figures.}{8}{section*.22}\protected@file@percent }
 \gdef \@abspage@last{8}
