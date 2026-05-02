@@ -6,6 +6,12 @@
       "knn": true,
       "linear_probe": true
     },
+    "Supervised-s43": {
+      "analysis": true,
+      "history": true,
+      "knn": true,
+      "linear_probe": true
+    },
     "VideoMAE-mask60": {
       "analysis": true,
       "history": true,
@@ -13,6 +19,12 @@
       "linear_probe": true
     },
     "VideoMAE-mask75": {
+      "analysis": true,
+      "history": true,
+      "knn": true,
+      "linear_probe": true
+    },
+    "VideoMAE-mask90": {
       "analysis": true,
       "history": true,
       "knn": true,
@@ -30,8 +42,16 @@
       "run_dir": "/root/dl_final-comp/videomae/artifacts/videomae_mask75"
     },
     {
+      "label": "VideoMAE-mask90",
+      "run_dir": "/root/dl_final-comp/videomae/artifacts/videomae_mask90"
+    },
+    {
       "label": "Supervised",
       "run_dir": "/root/dl_final-comp/videomae/artifacts/supervised"
+    },
+    {
+      "label": "Supervised-s43",
+      "run_dir": "/root/dl_final-comp/videomae/artifacts/supervised_s43"
     }
   ]
 }

@@ -1,0 +1,77 @@
+{
+  "amp": true,
+  "amp_dtype": "bfloat16",
+  "backend": null,
+  "batch_size": 64,
+  "clip_selection": "center",
+  "context_frames": 16,
+  "data_root": "/root/data",
+  "deterministic": false,
+  "device": "auto",
+  "dims": [
+    32,
+    64,
+    128,
+    256,
+    256
+  ],
+  "dist_backend": null,
+  "distributed": false,
+  "drop_path_rate": 0.05,
+  "encoder_params": 7719008,
+  "epochs": 30,
+  "grad_clip": 1.0,
+  "head_params": 514,
+  "in_chans": 11,
+  "label_norm": {
+    "label_names": [
+      "alpha",
+      "zeta"
+    ],
+    "mean": [
+      -3.022857189178467,
+      9.022856712341309
+    ],
+    "std": [
+      1.4538767337799072,
+      5.210916042327881
+    ]
+  },
+  "layer_scale_init_value": 1e-06,
+  "lr": 0.0003,
+  "max_train_samples": null,
+  "max_valid_samples": null,
+  "min_lr": 3e-06,
+  "num_frames": 16,
+  "num_res_blocks": [
+    2,
+    2,
+    4,
+    8,
+    2
+  ],
+  "num_workers": 4,
+  "out_dir": "videomae/artifacts/supervised_s43",
+  "pool": "avg",
+  "prefetch_factor": 2,
+  "resolution": 224,
+  "resume": null,
+  "save_every": 1,
+  "seed": 43,
+  "stem_kernel_size": 4,
+  "stem_patch_size": 2,
+  "total_params": 7719522,
+  "train_index_mode": "sliding_window",
+  "train_samples": 2975,
+  "train_stride": 4,
+  "valid_index_mode": "single_clip",
+  "valid_samples": 24,
+  "wandb_entity": null,
+  "wandb_mode": "offline",
+  "wandb_project": "dl-final-videomae",
+  "wandb_run_name": "supervised_s43",
+  "warmup_epochs": 1.0,
+  "warmup_start_factor": 0.001,
+  "weight_decay": 0.05,
+  "world_size": 1
+}

@@ -44,19 +44,30 @@ learnable mask token. We further train an end-to-end supervised baseline on the
 same encoder as an upper-bound anchor, and report a representation-collapse,
 isotropy and rank analysis suite that applies the LeJEPA Epps--Pulley statistic
 as a \emph{diagnostic} for any encoder. On the \texttt{active\_matter} test
-split with z-scored (\,$\alpha$, $\zeta$) targets, our supervised baseline
-reaches a frozen-encoder linear-probe MSE of $0.106$ (kNN $0.123$) while
-VideoMAE-mask$0.60$ reaches $0.331$ (kNN $0.610$) and VideoMAE-mask$0.75$
-reaches $0.299$ (kNN $0.672$). Strikingly, \emph{the SSL VideoMAE encoders are
-more isotropic} (Epps--Pulley distance $0.039$--$0.042$ vs.\ supervised
-$0.086$) and have higher effective rank (\,$\sim$$8$--$9$ vs.\ supervised $3.6$
-on validation), yet \emph{perform substantially worse} on the parameter
-estimation task -- a quantitative replication of \citet{qu2026spatiotemporal}'s
-"latent prediction beats pixel reconstruction" finding under our strictly
-weaker probe protocol, and a concrete demonstration that isotropy alone is not
-sufficient for low downstream MSE when the SSL objective wastes capacity on
-target-irrelevant signal. The colleague's SIGReg-JEPA results are integrated in
-Tab.~\ref{tab:main-results} for the full comparison.
+split with z-scored (\,$\alpha$, $\zeta$) targets and two seeds for the
+supervised baseline, our supervised baseline reaches a frozen-encoder
+linear-probe MSE of $0.10 \pm 0.005$ (kNN $0.10 \pm 0.03$) while VideoMAE
+sweeps the mask ratio $0.60 \to 0.75 \to 0.90$ to obtain a monotonically
+improving linear MSE of $0.331 \to 0.299 \to 0.253$ (best at mask$=0.90$, kNN
+$0.465$) -- a clean replication of Tong et al.'s "high mask ratio is optimal
+for video" finding on $11$-channel physical fields. Strikingly, \emph{the SSL
+VideoMAE encoders are more isotropic} (Epps--Pulley distance
+$0.039$--$0.042$ vs.\ supervised $0.086$) and have higher effective rank
+(\,$\sim$$8$ vs.\ supervised $3.5$ on validation), yet \emph{perform
+substantially worse} on the parameter estimation task -- a quantitative
+replication of \citet{qu2026spatiotemporal}'s "latent prediction beats pixel
+reconstruction" finding under our strictly weaker probe protocol, and a
+concrete demonstration that isotropy alone is not sufficient for low downstream
+MSE when the SSL objective wastes capacity on target-irrelevant signal. We
+further support this conclusion with a centered-kernel-alignment (CKA) matrix
+showing the three VideoMAE encoders are nearly identical (CKA $\geq 0.97$
+across mask ratios), the two supervised seeds are nearly identical (CKA
+$0.97$), but supervised vs.\ VideoMAE CKA is $0.72$--$0.75$, confirming that
+the SSL objective -- not the mask ratio or the seed -- is the dominant
+representation-shaping variable. A channel-importance ablation reveals that
+VideoMAE's reconstruction loss disproportionately weights the concentration
+scalar field ($\Delta$MSE $+0.26$ when zeroed for VideoMAE-mask$0.60$ vs.\
+$+0.029$ for supervised), explaining the rank-vs.-alignment trade-off.
 \end{abstract}
 
 \section{Introduction}
@@ -211,9 +222,11 @@ the validation embedding set. Best per column among \emph{our} entries in
 \textbf{Encoder} & \textbf{Params (M)} & \textbf{Linear} & \textbf{Linear $\alpha$} & \textbf{Linear $\zeta$} & \textbf{kNN} & \textbf{Eff.\ rank} & \textbf{Epps--Pulley} \\
 \midrule
 \textit{Ours:} & & & & & & & \\
-\quad Supervised (end-to-end)              & 7.72 & \textbf{0.106} & \textbf{0.033} & \textbf{0.178} & \textbf{0.123} & 3.60 & 0.086 \\
+\quad Supervised (s$=$42)                  & 7.72 & 0.106 & 0.033 & 0.178 & 0.123 & 3.60 & 0.086 \\
+\quad Supervised (s$=$43)                  & 7.72 & \textbf{0.098} & \textbf{0.033} & \textbf{0.164} & \textbf{0.078} & 3.32 & 0.088 \\
 \quad VideoMAE / SimMIM, mask$=0.60$       & 8.07 & 0.331 & 0.117 & 0.546 & 0.610 & 7.65 & 0.042 \\
 \quad VideoMAE / SimMIM, mask$=0.75$       & 8.07 & 0.299 & 0.075 & 0.522 & 0.672 & \textbf{8.87} & \textbf{0.039} \\
+\quad VideoMAE / SimMIM, mask$=0.90$       & 8.07 & 0.253 & 0.111 & 0.395 & 0.465 & 7.75 & 0.042 \\
 \quad SIGReg-JEPA (Person A)               & 7.72 & TBD   & TBD   & TBD   & TBD   & TBD            & TBD            \\
 \midrule
 \multicolumn{8}{l}{\emph{External references (Qu et al., attentive-probe FT for 100 epochs -- different protocol):}} \\
@@ -223,23 +236,37 @@ the validation embedding set. Best per column among \emph{our} entries in
 \end{tabular}
 \end{table*}
 
-The most striking observation in Tab.~\ref{tab:main-results} is the
-\emph{inversion} between isotropy and downstream MSE within our SSL encoders:
-the VideoMAE encoders have the lowest Epps--Pulley distance to
-$\mathcal{N}(0,I)$ ($0.039$--$0.042$ vs.\ supervised $0.086$) and the highest
-effective rank ($7.6$--$8.9$ vs.\ supervised $3.6$), yet they have
-$\sim$$3{\times}$ \emph{worse} linear probe MSE and $\sim$$5{\times}$ worse kNN
-MSE than the supervised baseline. This is consistent with
-\citet{qu2026spatiotemporal}'s headline finding that pixel reconstruction
-preserves features that are physically uninformative; isotropy alone is not
-sufficient for low downstream MSE when the encoder allocates rank to
-target-irrelevant signal. Increasing the mask ratio from $0.60$ to $0.75$
-slightly improves the linear probe MSE ($0.331 \to 0.299$) and slightly
-\emph{harms} the kNN MSE ($0.610 \to 0.672$), while pushing the embedding
-distribution further toward isotropy (lower Epps--Pulley distance, higher
-rank). The two SSL runs are within $\sim$$10\%$ of each other on most metrics,
-suggesting that mask ratio is not the dominant lever for downstream MSE on this
-dataset.
+Three observations stand out from Tab.~\ref{tab:main-results}.
+
+\paragraph{(1) Isotropy / rank inversion.} The VideoMAE encoders have the
+lowest Epps--Pulley distance to $\mathcal{N}(0,I)$ ($0.039$--$0.042$ vs.\
+supervised $\sim$$0.087$) and the highest effective rank ($7.6$--$8.9$ vs.\
+supervised $\sim$$3.5$), yet they have $\sim$$2.4$--$3.4{\times}$ \emph{worse}
+linear probe MSE and $\sim$$3.8$--$8.6{\times}$ worse kNN MSE than the
+supervised baseline. This is a direct quantitative confirmation of
+\citet{qu2026spatiotemporal}'s claim that pixel reconstruction preserves
+features that are physically uninformative; isotropy alone is not sufficient
+for low downstream MSE when the encoder allocates rank to target-irrelevant
+signal. We diagnose \emph{which} signal is target-irrelevant in
+Sec.~\ref{sec:analysis} via channel-importance ablation.
+
+\paragraph{(2) Mask-ratio sweep.} Increasing the mask ratio along $0.60 \to
+0.75 \to 0.90$ \emph{monotonically} improves the linear probe MSE ($0.331 \to
+0.299 \to 0.253$). The kNN MSE is non-monotonic but mask$=0.90$ is also the
+best on kNN ($0.465$, vs.\ $0.610$ at mask$=0.60$). This replicates Tong et
+al.'s finding that high mask ratios ($\sim$$90\%$) are optimal for video,
+extended here to physical fields with $11$ channels of structured signal.
+Crucially, even the best VideoMAE configuration (mask$=0.90$) is still
+$\sim$$2.5{\times}$ worse than the supervised baseline -- the SSL paradigm
+itself is the limiting factor, not the mask ratio.
+
+\paragraph{(3) Seed stability.} Two supervised seeds (s$=42$, s$=43$) give
+linear MSE $0.106$ and $0.098$ respectively (mean $0.102$, std $\sim$$0.005$),
+and CKA $0.97$ between them: the supervised baseline is highly reproducible.
+The VideoMAE encoders across mask ratios have CKA $\geq 0.97$ with each other,
+but only $0.72$--$0.75$ with the supervised encoder, confirming that the SSL
+objective is the dominant representation-shaping variable -- not the seed and
+not the mask ratio.
 
 \section{Analysis}
 \label{sec:analysis}
@@ -271,11 +298,28 @@ weighted by $e^{-t^2/2}$ and integrated to $t=3$. This is precisely Person A's
 training objective (for SIGReg-JEPA), but applied here to \emph{any} encoder's
 embeddings as a goodness-of-fit-to-isotropic-Gaussian metric.
 
-\paragraph{Channel and frame ablations.} Time constraints permitted only the
-mask-ratio ablation. Channel-importance and frame-budget ablations are
-implemented in \texttt{videomae/analyze\_representations.py} and the running
-infrastructure for them is included in the released code, but the ablation
-sweep itself is left as future work.
+\paragraph{Channel-importance ablation.} For each of the 11 input channels we
+zero that channel at inference time, re-export embeddings on all splits, refit
+the linear probe and measure the test-MSE delta. The most informative finding
+is the \emph{difference} between supervised and VideoMAE: zeroing the
+concentration scalar field hurts supervised by only $\Delta$MSE $+0.029$ but
+hurts VideoMAE-mask$0.60$ by $\Delta$MSE $+0.264$ -- nearly an order of
+magnitude more reliance. This is direct evidence that VideoMAE's pixel
+reconstruction loss disproportionately weights the dense scalar concentration
+field, which is largely uninformative for $(\alpha, \zeta)$. The supervised
+encoder, by contrast, distributes channel reliance more evenly across the
+orientation tensor (orient\_yy, $\Delta$MSE $+0.051$), velocity (vel\_x,
+$+0.036$) and concentration ($+0.029$). Full per-channel deltas are in
+Tab.~\ref{tab:channel-ablation} (Appendix).
+
+\paragraph{Frame-budget ablation.} Re-exporting embeddings with the encoder
+fed only the first $T \in \{4, 8, 12, 16\}$ frames (latter frames replaced by
+the last available frame) shows that supervised saturates around $T=8$ frames
+($\text{MSE} = 0.128$) while VideoMAE is more sample-hungry temporally:
+mask$0.60$ improves from $0.462 \to 0.247$ between $T=4$ and $T=12$, and
+mask$0.75$ from $0.542 \to 0.297 \to 0.259$. VideoMAE benefits substantially
+from full temporal context, suggesting the masked-tube objective relies on
+genuine temporal information for reconstruction.
 
 \section{Limitations and Ethics}
 

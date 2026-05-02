@@ -1,0 +1,21 @@
+{
+  "best_valid_loss": 0.9383302927017212,
+  "epochs": [
+    {
+      "epoch": 1,
+      "lr": 7.507500000000004e-05,
+      "seconds": 188.36,
+      "train_loss": 0.985431652079413,
+      "valid_loss": 0.9657185673713684,
+      "world_size": 1
+    },
+    {
+      "epoch": 2,
+      "lr": 0.00015,
+      "seconds": 171.16,
+      "train_loss": 0.9603566483708171,
+      "valid_loss": 0.9383302927017212,
+      "world_size": 1
+    }
+  ]
+}

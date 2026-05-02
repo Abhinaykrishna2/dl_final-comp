@@ -1,0 +1,156 @@
+{
+  "baseline": {
+    "test_normalized_alpha_mse": 0.09172715246677399,
+    "test_normalized_mean_mse": 0.2588885426521301,
+    "test_normalized_zeta_mse": 0.4260499179363251,
+    "valid_normalized_alpha_mse": 0.055713552981615067,
+    "valid_normalized_mean_mse": 0.4114862084388733,
+    "valid_normalized_zeta_mse": 0.767258882522583
+  },
+  "channel_names": [
+    "concentration",
+    "vel_x",
+    "vel_y",
+    "orient_xx",
+    "orient_xy",
+    "orient_yx",
+    "orient_yy",
+    "strain_xx",
+    "strain_xy",
+    "strain_yx",
+    "strain_yy"
+  ],
+  "per_channel": [
+    {
+      "channel": -1,
+      "channel_name": "baseline",
+      "test_normalized_alpha_mse": 0.09172715246677399,
+      "test_normalized_mean_mse": 0.2588885426521301,
+      "test_normalized_zeta_mse": 0.4260499179363251,
+      "valid_normalized_alpha_mse": 0.055713552981615067,
+      "valid_normalized_mean_mse": 0.4114862084388733,
+      "valid_normalized_zeta_mse": 0.767258882522583
+    },
+    {
+      "channel": 0,
+      "channel_name": "concentration",
+      "test_mse_delta_vs_baseline": 0.22827857732772827,
+      "test_normalized_alpha_mse": 0.23267611861228943,
+      "test_normalized_mean_mse": 0.4871671199798584,
+      "test_normalized_zeta_mse": 0.7416581511497498,
+      "valid_normalized_alpha_mse": 0.047457095235586166,
+      "valid_normalized_mean_mse": 0.32602396607398987,
+      "valid_normalized_zeta_mse": 0.6045908331871033
+    },
+    {
+      "channel": 1,
+      "channel_name": "vel_x",
+      "test_mse_delta_vs_baseline": 0.11284506320953369,
+      "test_normalized_alpha_mse": 0.1640952229499817,
+      "test_normalized_mean_mse": 0.3717336058616638,
+      "test_normalized_zeta_mse": 0.579371988773346,
+      "valid_normalized_alpha_mse": 0.06398383527994156,
+      "valid_normalized_mean_mse": 0.28647616505622864,
+      "valid_normalized_zeta_mse": 0.5089684724807739
+    },
+    {
+      "channel": 2,
+      "channel_name": "vel_y",
+      "test_mse_delta_vs_baseline": 0.037619173526763916,
+      "test_normalized_alpha_mse": 0.1836453229188919,
+      "test_normalized_mean_mse": 0.29650771617889404,
+      "test_normalized_zeta_mse": 0.409370094537735,
+      "valid_normalized_alpha_mse": 0.08022304624319077,
+      "valid_normalized_mean_mse": 0.3767034411430359,
+      "valid_normalized_zeta_mse": 0.6731838583946228
+    },
+    {
+      "channel": 3,
+      "channel_name": "orient_xx",
+      "test_mse_delta_vs_baseline": 0.21507656574249268,
+      "test_normalized_alpha_mse": 0.13201774656772614,
+      "test_normalized_mean_mse": 0.4739651083946228,
+      "test_normalized_zeta_mse": 0.8159124851226807,
+      "valid_normalized_alpha_mse": 0.0453546904027462,
+      "valid_normalized_mean_mse": 0.3141534924507141,
+      "valid_normalized_zeta_mse": 0.5829523205757141
+    },
+    {
+      "channel": 4,
+      "channel_name": "orient_xy",
+      "test_mse_delta_vs_baseline": 0.010842204093933105,
+      "test_normalized_alpha_mse": 0.1633925586938858,
+      "test_normalized_mean_mse": 0.26973074674606323,
+      "test_normalized_zeta_mse": 0.37606894969940186,
+      "valid_normalized_alpha_mse": 0.04770730435848236,
+      "valid_normalized_mean_mse": 0.36700284481048584,
+      "valid_normalized_zeta_mse": 0.6862983703613281
+    },
+    {
+      "channel": 5,
+      "channel_name": "orient_yx",
+      "test_mse_delta_vs_baseline": 0.08093807101249695,
+      "test_normalized_alpha_mse": 0.20537781715393066,
+      "test_normalized_mean_mse": 0.3398266136646271,
+      "test_normalized_zeta_mse": 0.4742754101753235,
+      "valid_normalized_alpha_mse": 0.06409046798944473,
+      "valid_normalized_mean_mse": 0.45853984355926514,
+      "valid_normalized_zeta_mse": 0.8529891967773438
+    },
+    {
+      "channel": 6,
+      "channel_name": "orient_yy",
+      "test_mse_delta_vs_baseline": 0.11145949363708496,
+      "test_normalized_alpha_mse": 0.21176430583000183,
+      "test_normalized_mean_mse": 0.3703480362892151,
+      "test_normalized_zeta_mse": 0.528931736946106,
+      "valid_normalized_alpha_mse": 0.05553186312317848,
+      "valid_normalized_mean_mse": 0.3417970538139343,
+      "valid_normalized_zeta_mse": 0.6280622482299805
+    },
+    {
+      "channel": 7,
+      "channel_name": "strain_xx",
+      "test_mse_delta_vs_baseline": 0.28130024671554565,
+      "test_normalized_alpha_mse": 0.11227287352085114,
+      "test_normalized_mean_mse": 0.5401887893676758,
+      "test_normalized_zeta_mse": 0.9681047201156616,
+      "valid_normalized_alpha_mse": 0.05503174290060997,
+      "valid_normalized_mean_mse": 0.47943028807640076,
+      "valid_normalized_zeta_mse": 0.9038288593292236
+    },
+    {
+      "channel": 8,
+      "channel_name": "strain_xy",
+      "test_mse_delta_vs_baseline": -0.02427591383457184,
+      "test_normalized_alpha_mse": 0.0768485739827156,
+      "test_normalized_mean_mse": 0.2346126288175583,
+      "test_normalized_zeta_mse": 0.39237669110298157,
+      "valid_normalized_alpha_mse": 0.05510307848453522,
+      "valid_normalized_mean_mse": 0.36140188574790955,
+      "valid_normalized_zeta_mse": 0.6677007079124451
+    },
+    {
+      "channel": 9,
+      "channel_name": "strain_yx",
+      "test_mse_delta_vs_baseline": 0.10530126094818115,
+      "test_normalized_alpha_mse": 0.11777220666408539,
+      "test_normalized_mean_mse": 0.3641898036003113,
+      "test_normalized_zeta_mse": 0.610607385635376,
+      "valid_normalized_alpha_mse": 0.05485879257321358,
+      "valid_normalized_mean_mse": 0.5366822481155396,
+      "valid_normalized_zeta_mse": 1.0185056924819946
+    },
+    {
+      "channel": 10,
+      "channel_name": "strain_yy",
+      "test_mse_delta_vs_baseline": 0.058300018310546875,
+      "test_normalized_alpha_mse": 0.07743310928344727,
+      "test_normalized_mean_mse": 0.317188560962677,
+      "test_normalized_zeta_mse": 0.5569440126419067,
+      "valid_normalized_alpha_mse": 0.058069538325071335,
+      "valid_normalized_mean_mse": 0.4317035973072052,
+      "valid_normalized_zeta_mse": 0.80533766746521
+    }
+  ]
+}

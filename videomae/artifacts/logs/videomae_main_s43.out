@@ -1,0 +1,5 @@
+wandb: Tracking run with wandb version 0.26.1
+wandb: W&B syncing is set to `offline` in this directory. Run `wandb online` or set WANDB_MODE=online to enable cloud syncing.
+wandb: Run data is saved locally in videomae/artifacts/videomae_main_s43/wandb/offline-run-20260502_002730-5ilzeagt
+{'epoch': 1, 'seconds': 188.36, 'train_loss': 0.985431652079413, 'valid_loss': 0.9657185673713684, 'lr': 7.507500000000004e-05, 'world_size': 1}
+{'epoch': 2, 'seconds': 171.16, 'train_loss': 0.9603566483708171, 'valid_loss': 0.9383302927017212, 'lr': 0.00015, 'world_size': 1}

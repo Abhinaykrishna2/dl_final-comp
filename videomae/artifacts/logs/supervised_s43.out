@@ -1,0 +1,62 @@
+wandb: Tracking run with wandb version 0.26.1
+wandb: W&B syncing is set to `offline` in this directory. Run `wandb online` or set WANDB_MODE=online to enable cloud syncing.
+wandb: Run data is saved locally in videomae/artifacts/supervised_s43/wandb/offline-run-20260501_234043-j5x8ij3r
+{'epoch': 1, 'seconds': 102.77, 'train_loss': 0.9174024036551724, 'valid_loss': 0.5966041088104248, 'lr': 0.0003, 'world_size': 1, 'valid_alpha_mse': 0.9003345370292664, 'valid_zeta_mse': 20.834123611450195, 'valid_mean_mse': 10.867229461669922, 'valid_mean_mse_normalized': 0.5966041684150696}
+{'epoch': 2, 'seconds': 92.01, 'train_loss': 0.47553741330860044, 'valid_loss': 0.37707555294036865, 'lr': 0.00029912948663742245, 'world_size': 1, 'valid_alpha_mse': 0.34086477756500244, 'valid_zeta_mse': 16.099153518676758, 'valid_mean_mse': 8.220008850097656, 'valid_mean_mse_normalized': 0.37707552313804626}
+{'epoch': 3, 'seconds': 91.15, 'train_loss': 0.4535208680249062, 'valid_loss': 0.27494528889656067, 'lr': 0.0002965281525229478, 'world_size': 1, 'valid_alpha_mse': 0.06815233081579208, 'valid_zeta_mse': 14.056037902832031, 'valid_mean_mse': 7.0620951652526855, 'valid_mean_mse_normalized': 0.2749452590942383}
+{'epoch': 4, 'seconds': 88.43, 'train_loss': 0.4380553131143586, 'valid_loss': 0.4169778525829315, 'lr': 0.0002922264959206461, 'world_size': 1, 'valid_alpha_mse': 0.5824891924858093, 'valid_zeta_mse': 15.162192344665527, 'valid_mean_mse': 7.872340679168701, 'valid_mean_mse_normalized': 0.4169778823852539}
+{'epoch': 5, 'seconds': 91.04, 'train_loss': 0.31150249236772043, 'valid_loss': 0.39251387119293213, 'lr': 0.00028627494982113704, 'world_size': 1, 'valid_alpha_mse': 0.1703554391860962, 'valid_zeta_mse': 19.127952575683594, 'valid_mean_mse': 9.649153709411621, 'valid_mean_mse_normalized': 0.39251381158828735}
+{'epoch': 6, 'seconds': 89.15, 'train_loss': 0.2895266518773151, 'valid_loss': 0.2887018918991089, 'lr': 0.0002787432906608869, 'world_size': 1, 'valid_alpha_mse': 0.17295683920383453, 'valid_zeta_mse': 13.456786155700684, 'valid_mean_mse': 6.814871311187744, 'valid_mean_mse_normalized': 0.2887018620967865}
+{'epoch': 7, 'seconds': 90.96, 'train_loss': 0.24512964383393776, 'valid_loss': 0.21016447246074677, 'lr': 0.000269719820257288, 'world_size': 1, 'valid_alpha_mse': 0.11672103404998779, 'valid_zeta_mse': 9.914044380187988, 'valid_mean_mse': 5.015382766723633, 'valid_mean_mse_normalized': 0.21016445755958557}
+{'epoch': 8, 'seconds': 89.74, 'train_loss': 0.2719543684230131, 'valid_loss': 0.21937832236289978, 'lr': 0.0002593103305505849, 'world_size': 1, 'valid_alpha_mse': 0.059045467525720596, 'valid_zeta_mse': 11.155335426330566, 'valid_mean_mse': 5.6071906089782715, 'valid_mean_mse_normalized': 0.21937833726406097}
+{'epoch': 9, 'seconds': 89.8, 'train_loss': 0.20822722088389037, 'valid_loss': 0.3190934360027313, 'lr': 0.0002476368632901014, 'world_size': 1, 'valid_alpha_mse': 0.038865674287080765, 'valid_zeta_mse': 16.82982635498047, 'valid_mean_mse': 8.434346199035645, 'valid_mean_mse_normalized': 0.3190934658050537}
+{'epoch': 10, 'seconds': 89.85, 'train_loss': 0.20374729922338694, 'valid_loss': 0.2488105744123459, 'lr': 0.0002348362792063139, 'world_size': 1, 'valid_alpha_mse': 0.05379173532128334, 'valid_zeta_mse': 12.821213722229004, 'valid_mean_mse': 6.437502861022949, 'valid_mean_mse_normalized': 0.2488105446100235}
+{'epoch': 11, 'seconds': 90.41, 'train_loss': 0.17580404355245477, 'valid_loss': 0.17348508536815643, 'lr': 0.00022105865344391895, 'world_size': 1, 'valid_alpha_mse': 0.055514927953481674, 'valid_zeta_mse': 8.708351135253906, 'valid_mean_mse': 4.381933212280273, 'valid_mean_mse_normalized': 0.17348505556583405}
+{'epoch': 12, 'seconds': 88.79, 'train_loss': 0.1488886745336677, 'valid_loss': 0.1825682371854782, 'lr': 0.0002064655160679774, 'world_size': 1, 'valid_alpha_mse': 0.07447362691164017, 'valid_zeta_mse': 8.958086967468262, 'valid_mean_mse': 4.516280174255371, 'valid_mean_mse_normalized': 0.1825682371854782}
+{'epoch': 13, 'seconds': 89.72, 'train_loss': 0.14680085870899073, 'valid_loss': 0.16236743330955505, 'lr': 0.00019122795827158958, 'world_size': 1, 'valid_alpha_mse': 0.05202953517436981, 'valid_zeta_mse': 8.1493558883667, 'valid_mean_mse': 4.1006927490234375, 'valid_mean_mse_normalized': 0.16236743330955505}
+{'epoch': 14, 'seconds': 88.62, 'train_loss': 0.1519611698639493, 'valid_loss': 0.2994987368583679, 'lr': 0.00017552462648808576, 'world_size': 1, 'valid_alpha_mse': 0.06365717202425003, 'valid_zeta_mse': 15.447216033935547, 'valid_mean_mse': 7.755436420440674, 'valid_mean_mse_normalized': 0.2994987368583679}
+{'epoch': 15, 'seconds': 89.69, 'train_loss': 0.13743650313185043, 'valid_loss': 0.21040937304496765, 'lr': 0.00015953962792493472, 'world_size': 1, 'valid_alpha_mse': 0.04329104349017143, 'valid_zeta_mse': 10.870638847351074, 'valid_mean_mse': 5.45696496963501, 'valid_mean_mse_normalized': 0.21040937304496765}
+{'epoch': 16, 'seconds': 89.12, 'train_loss': 0.10347604589802878, 'valid_loss': 0.1592375785112381, 'lr': 0.00014346037207506565, 'world_size': 1, 'valid_alpha_mse': 0.0567883737385273, 'valid_zeta_mse': 7.918250560760498, 'valid_mean_mse': 3.9875195026397705, 'valid_mean_mse_normalized': 0.15923760831356049}
+{'epoch': 17, 'seconds': 89.26, 'train_loss': 0.07312931843665467, 'valid_loss': 0.16960889101028442, 'lr': 0.0001274753735119146, 'world_size': 1, 'valid_alpha_mse': 0.057199809700250626, 'valid_zeta_mse': 8.476202011108398, 'valid_mean_mse': 4.266700744628906, 'valid_mean_mse_normalized': 0.16960889101028442}
+{'epoch': 18, 'seconds': 88.64, 'train_loss': 0.06486161615918665, 'valid_loss': 0.12244255840778351, 'lr': 0.0001117720417284108, 'world_size': 1, 'valid_alpha_mse': 0.05892070755362511, 'valid_zeta_mse': 5.892619609832764, 'valid_mean_mse': 2.9757702350616455, 'valid_mean_mse_normalized': 0.12244255840778351}
+{'epoch': 19, 'seconds': 89.15, 'train_loss': 0.046698673408822854, 'valid_loss': 0.11640074104070663, 'lr': 9.653448393202277e-05, 'world_size': 1, 'valid_alpha_mse': 0.07235892862081528, 'valid_zeta_mse': 5.391876220703125, 'valid_mean_mse': 2.7321176528930664, 'valid_mean_mse_normalized': 0.11640075594186783}
+{'epoch': 20, 'seconds': 89.28, 'train_loss': 0.042317171785510886, 'valid_loss': 0.10516360402107239, 'lr': 8.194134655608113e-05, 'world_size': 1, 'valid_alpha_mse': 0.04133619740605354, 'valid_zeta_mse': 5.180139541625977, 'valid_mean_mse': 2.6107378005981445, 'valid_mean_mse_normalized': 0.10516360402107239}
+{'epoch': 21, 'seconds': 89.83, 'train_loss': 0.03406062087404127, 'valid_loss': 0.11693589389324188, 'lr': 6.816372079368618e-05, 'world_size': 1, 'valid_alpha_mse': 0.034599900245666504, 'valid_zeta_mse': 5.905995845794678, 'valid_mean_mse': 2.9702978134155273, 'valid_mean_mse_normalized': 0.11693589389324188}
+{'epoch': 22, 'seconds': 88.94, 'train_loss': 0.028607814174865475, 'valid_loss': 0.10837085545063019, 'lr': 5.536313670989858e-05, 'world_size': 1, 'valid_alpha_mse': 0.041335590183734894, 'valid_zeta_mse': 5.354323863983154, 'valid_mean_mse': 2.6978297233581543, 'valid_mean_mse_normalized': 0.10837085545063019}
+{'epoch': 23, 'seconds': 89.33, 'train_loss': 0.02624591469952539, 'valid_loss': 0.09817158430814743, 'lr': 4.368966944941505e-05, 'world_size': 1, 'valid_alpha_mse': 0.035835351794958115, 'valid_zeta_mse': 4.871085166931152, 'valid_mean_mse': 2.453460216522217, 'valid_mean_mse_normalized': 0.09817157685756683}
+{'epoch': 24, 'seconds': 89.0, 'train_loss': 0.0235898050202542, 'valid_loss': 0.10429217666387558, 'lr': 3.3280179742711884e-05, 'world_size': 1, 'valid_alpha_mse': 0.027014458552002907, 'valid_zeta_mse': 5.316793918609619, 'valid_mean_mse': 2.6719040870666504, 'valid_mean_mse_normalized': 0.10429216176271439}
+{'epoch': 25, 'seconds': 89.24, 'train_loss': 0.021421438114983694, 'valid_loss': 0.09711470454931259, 'lr': 2.425670933911309e-05, 'world_size': 1, 'valid_alpha_mse': 0.022840360179543495, 'valid_zeta_mse': 4.980625629425049, 'valid_mean_mse': 2.5017330646514893, 'valid_mean_mse_normalized': 0.0971146896481514}
+{'epoch': 26, 'seconds': 88.21, 'train_loss': 0.018389122024992433, 'valid_loss': 0.0986875519156456, 'lr': 1.672505017886299e-05, 'world_size': 1, 'valid_alpha_mse': 0.023295164108276367, 'valid_zeta_mse': 5.060199737548828, 'valid_mean_mse': 2.541747570037842, 'valid_mean_mse_normalized': 0.0986875593662262}
+{'epoch': 27, 'seconds': 88.39, 'train_loss': 0.01739233576825687, 'valid_loss': 0.09525969624519348, 'lr': 1.0773504079353904e-05, 'world_size': 1, 'valid_alpha_mse': 0.02288742922246456, 'valid_zeta_mse': 4.879281044006348, 'valid_mean_mse': 2.4510841369628906, 'valid_mean_mse_normalized': 0.09525968879461288}
+{'epoch': 28, 'seconds': 88.96, 'train_loss': 0.016602893002456477, 'valid_loss': 0.09699064493179321, 'lr': 6.4718474770521575e-06, 'world_size': 1, 'valid_alpha_mse': 0.02305503748357296, 'valid_zeta_mse': 4.97113037109375, 'valid_mean_mse': 2.4970927238464355, 'valid_mean_mse_normalized': 0.09699065238237381}
+{'epoch': 29, 'seconds': 88.49, 'train_loss': 0.01541946056478915, 'valid_loss': 0.09810905158519745, 'lr': 3.870513362577605e-06, 'world_size': 1, 'valid_alpha_mse': 0.022723635658621788, 'valid_zeta_mse': 5.036125659942627, 'valid_mean_mse': 2.5294246673583984, 'valid_mean_mse_normalized': 0.09810905903577805}
+{'epoch': 30, 'seconds': 89.18, 'train_loss': 0.016139311162801852, 'valid_loss': 0.0949573814868927, 'lr': 3e-06, 'world_size': 1, 'valid_alpha_mse': 0.02382841147482395, 'valid_zeta_mse': 4.850775241851807, 'valid_mean_mse': 2.4373018741607666, 'valid_mean_mse_normalized': 0.0949573814868927}
+wandb: 
+wandb: Run history:
+wandb:                     epoch ▁▁▁▂▂▂▂▃▃▃▃▄▄▄▄▅▅▅▅▆▆▆▆▇▇▇▇███
+wandb:                        lr █████▇▇▇▇▆▆▆▅▅▅▄▄▄▃▃▃▂▂▂▂▁▁▁▁▁
+wandb:                   seconds █▃▂▁▂▁▂▂▂▂▂▁▂▁▂▁▂▁▁▂▂▁▂▁▁▁▁▁▁▁
+wandb:                train_loss █▅▄▄▃▃▃▃▂▂▂▂▂▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:           valid_alpha_mse █▄▁▅▂▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:                valid_loss █▅▄▅▅▄▃▃▄▃▂▂▂▄▃▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:            valid_mean_mse █▆▅▆▇▅▃▄▆▄▃▃▂▅▄▂▃▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb: valid_mean_mse_normalized █▅▄▅▅▄▃▃▄▃▂▂▂▄▃▂▂▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:            valid_zeta_mse █▆▅▆▇▅▃▄▆▄▃▃▂▆▄▂▃▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb:                world_size ▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁
+wandb: 
+wandb: Run summary:
+wandb: best_valid_mean_mse_normalized 0.09496
+wandb:                          epoch 30
+wandb:                     last_epoch 30
+wandb:                             lr 0.0
+wandb:                        seconds 89.18
+wandb:                     train_loss 0.01614
+wandb:                valid_alpha_mse 0.02383
+wandb:                     valid_loss 0.09496
+wandb:                 valid_mean_mse 2.4373
+wandb:      valid_mean_mse_normalized 0.09496
+wandb:                             +2 ...
+wandb: 
+wandb: You can sync this run to the cloud by running:
+wandb: wandb sync videomae/artifacts/supervised_s43/wandb/offline-run-20260501_234043-j5x8ij3r
+wandb: Find logs at: videomae/artifacts/supervised_s43/wandb/offline-run-20260501_234043-j5x8ij3r/logs

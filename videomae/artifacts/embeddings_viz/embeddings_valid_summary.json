@@ -1,0 +1,36 @@
+{
+  "runs": [
+    {
+      "label": "Supervised",
+      "n_samples": 24,
+      "embedding_dim": 256,
+      "pca_explained_ratio": [
+        0.5371415615081787,
+        0.3356959819793701
+      ],
+      "split": "valid"
+    },
+    {
+      "label": "VideoMAE-mask60",
+      "n_samples": 24,
+      "embedding_dim": 256,
+      "pca_explained_ratio": [
+        0.5184075236320496,
+        0.07410215586423874
+      ],
+      "split": "valid"
+    },
+    {
+      "label": "VideoMAE-mask75",
+      "n_samples": 24,
+      "embedding_dim": 256,
+      "pca_explained_ratio": [
+        0.46232765913009644,
+        0.08753272891044617
+      ],
+      "split": "valid"
+    }
+  ],
+  "split": "valid",
+  "pdf": "/root/dl_final-comp/videomae/artifacts/embeddings_viz/embeddings_valid.pdf"
+}

@@ -1,0 +1,41 @@
+{
+  "encoder_native_frames": 16,
+  "per_frames": [
+    {
+      "frames": 4,
+      "test_normalized_alpha_mse": 0.03801078349351883,
+      "test_normalized_mean_mse": 0.14787186682224274,
+      "test_normalized_zeta_mse": 0.25773295760154724,
+      "valid_normalized_alpha_mse": 0.025945039466023445,
+      "valid_normalized_mean_mse": 0.18776753544807434,
+      "valid_normalized_zeta_mse": 0.3495900332927704
+    },
+    {
+      "frames": 8,
+      "test_normalized_alpha_mse": 0.027852419763803482,
+      "test_normalized_mean_mse": 0.12836597859859467,
+      "test_normalized_zeta_mse": 0.22887954115867615,
+      "valid_normalized_alpha_mse": 0.03533411771059036,
+      "valid_normalized_mean_mse": 0.10809434950351715,
+      "valid_normalized_zeta_mse": 0.18085457384586334
+    },
+    {
+      "frames": 12,
+      "test_normalized_alpha_mse": 0.028689514845609665,
+      "test_normalized_mean_mse": 0.1301734298467636,
+      "test_normalized_zeta_mse": 0.23165735602378845,
+      "valid_normalized_alpha_mse": 0.02311909757554531,
+      "valid_normalized_mean_mse": 0.07037948071956635,
+      "valid_normalized_zeta_mse": 0.11763986200094223
+    },
+    {
+      "frames": 16,
+      "test_normalized_alpha_mse": 0.032740481197834015,
+      "test_normalized_mean_mse": 0.10872288048267365,
+      "test_normalized_zeta_mse": 0.18470527231693268,
+      "valid_normalized_alpha_mse": 0.017220156267285347,
+      "valid_normalized_mean_mse": 0.07991151511669159,
+      "valid_normalized_zeta_mse": 0.14260287582874298
+    }
+  ]
+}
