@@ -1,116 +1,156 @@
 # Active Matter Self-Supervised Representation Learning
 
-This repository contains the final project code for learning frozen video representations on the `active_matter` dataset from The Well, then evaluating those representations with only a linear probe and kNN regression on the physical parameters `alpha` and `zeta`.
+This repository contains the final project implementation for learning self-supervised video representations on the `active_matter` dataset from The Well. The learned encoder is frozen and evaluated on the physical parameters `alpha` and `zeta` using only the two downstream evaluators allowed by the project: a single linear layer and kNN regression.
 
-The current best submission path is the 96x96 CNext-U-Net forecaster. The older JEPA, SIGReg, and V-JEPA experiments are kept as part of the study because the project is evaluated on the representation-learning process and collapse analysis, not just the final downstream number.
-
-## Compliance With Project Constraints
-
-The implementation is organized around the constraints in `Final Project.docx`:
-
-- Representation learning is self-supervised and trained from scratch.
-- No pretrained weights or external datasets are used.
-- The encoder has fewer than 100M parameters. The final CNext-U-Net run has 18.59M total parameters and 7.34M encoder parameters.
-- The representation-learning scripts construct train/valid pretraining datasets with `include_labels=False`, so `alpha` and `zeta` are not loaded during encoder training.
-- The encoder is frozen before downstream evaluation.
-- Downstream evaluation uses only a single linear layer and kNN regression.
-- Hyperparameters are selected with the validation split. The test split is used only for final reporting.
-- Frames are resized to 96x96 for the final CNext run. This differs from the original 224x224 default, but the TA clarified that using 96x96 is allowed.
-
-## Repository Layout
-
-- `active_matter_ssl/`: reusable dataset, models, training, embedding export, and downstream evaluation code.
-- `active_matter_ssl/train_jepa.py`: ConvNeXt-style JEPA training with VICReg or SIGReg losses.
-- `active_matter_ssl/train_vjepa.py`: V-JEPA-style masked prediction with an EMA target encoder.
-- `active_matter_ssl/train_cnext_forecaster.py`: final CNext-U-Net future-frame forecaster.
-- `active_matter_ssl/export_embeddings.py`: frozen embedding export for JEPA/V-JEPA-style encoders.
-- `active_matter_ssl/export_cnext_embeddings.py`: frozen embedding export for the CNext-U-Net encoder.
-- `active_matter_ssl/sweep_linear_probe.py`: single-linear-layer downstream regression sweep.
-- `active_matter_ssl/eval_knn.py`: kNN downstream regression sweep.
-- `experiments/`: organized command wrappers and notes for each major approach.
-- `artifacts/`: committed final CNext checkpoints, embeddings, and downstream metrics.
-- `cnext_logs/`: reproduction commands and stdout logs for the final run.
-- `baseline.txt`: recorded first JEPA baseline metrics.
-
-## Approaches
-
-### 1. E-JEPA / VICReg Baseline
-
-The first baseline used the ConvNeXt-style JEPA encoder in `active_matter_ssl/train_jepa.py`. It used 16 context frames and 16 target frames, with a VICReg-style representation objective to avoid complete collapse.
-
-Recorded baseline results from `baseline.txt`:
-
-| Method | Valid normalized mean MSE | Test normalized mean MSE | Test raw mean MSE |
-|---|---:|---:|---:|
-| Linear probe | 0.2158 | 0.2485 | 5.27 |
-| kNN | 0.1960 | 0.2709 | 6.77 |
-
-This baseline was trained with the earlier 224x224 preprocessing. It is included as the original baseline run. The final CNext-U-Net run uses 96x96 frames after TA clarification that the patch/frame size may be changed, so the baseline comparison is an end-to-end project comparison rather than a controlled resolution-only ablation.
-
-### 2. ConvNeXt JEPA + SIGReg Attempt
-
-The SIGReg experiment tried to use a JEPA prediction loss plus a distribution regularizer:
-
-- prediction term: context representation predicts the target representation
-- SIGReg term: encourages the representation distribution to match a non-collapsed target distribution
-- `--target-stop-grad`: added to avoid the most trivial collapse mode
-
-Observed failure mode:
-
-- `train_sigreg_loss` stayed frozen at about 25.7268.
-- `valid_sigreg_loss` stayed frozen at about 9.625.
-- These values did not meaningfully change from epoch 2 through epoch 25.
-- `pred_loss` fell near zero by epoch 2, around `9.7e-4`, and later converged much lower.
-- The encoder found a local minimum where prediction was solved, but the exported embedding distribution was not shaped by SIGReg.
-
-The main interpretation is that the SIGReg gradient was too weak at `lejepa-lambda=0.05`, especially once the prediction branch had already become easy. When SIGReg was applied to the projection head, the regularization also did not directly guarantee that the pooled encoder features used for downstream kNN were isotropic.
-
-This run is included as a negative result and collapse-mitigation study. `--target-stop-grad` fixed the direct target-branch collapse, but the distribution regularizer still did not become strong enough to affect the final frozen embedding space.
-
-### 3. V-JEPA / EMA Masking Attempt
-
-The V-JEPA-style path in `active_matter_ssl/train_vjepa.py` was added as a more conservative collapse-mitigation experiment. It uses spatial masking and an EMA target encoder so the online encoder predicts target features without directly chasing a rapidly moving target branch.
-
-This ablation addresses a concrete problem observed in the SIGReg run: the prediction task needs to remain nontrivial for longer, and the EMA target reduces the chance of directly chasing a rapidly moving target branch. It is not the final selected result in this repository because the CNext-U-Net forecaster produced stronger downstream validation and test numbers under the project deadline.
-
-### 4. Final CNext-U-Net Forecaster
-
-The final approach uses `active_matter_ssl/train_cnext_forecaster.py`, a scratch CNext-U-Net future-frame forecaster inspired by The Well `UNetConvNext` benchmark architecture. It is not pretrained. The decoder is used only during self-supervised pretraining.
-
-Training setup:
-
-- input: 4 context frames
-- target: next 1 frame
-- resolution: 96x96
-- objective: future-frame MSE over physical fields
-- split used for weight updates: train only
-- validation: selected the best forecasting checkpoint
-- frozen representation: bottleneck encoder features from `encoder_best.pt`
-- downstream embedding export: one deterministic 16-frame clip per simulation, sliding 4-frame windows internally, avg+max pooling
-
-Final CNext downstream results:
-
-| Method | Valid normalized mean MSE | Test normalized mean MSE | Test alpha MSE | Test zeta MSE | Best config |
-|---|---:|---:|---:|---:|---|
-| Linear probe | 0.0886 | 0.1992 | 0.1157 | 0.2827 | feature zscore, lr 3e-4, wd 1e-4, full batch |
-| kNN | 0.0612 | 0.1285 | 0.0121 | 0.2449 | k=5, distance weights, euclidean, feature zscore |
-
-The final kNN result is the strongest recorded number in this repository. The linear probe also improves over the original baseline, but the larger gain is in kNN, which suggests that the CNext future-prediction objective produced a more useful neighborhood geometry than the earlier JEPA baseline.
+The final selected model is a 96x96 CNext-U-Net future-frame forecaster. The repository also keeps the scored JEPA/VICReg baseline and the failed SigReg JEPA experiment because those runs document the representation-learning study, collapse diagnosis, and final model selection.
 
 ## Final Results
 
-The final selected encoder is the 96x96 CNext-U-Net forecaster. Results below are normalized MSE values on the held-out test split after validation-based model selection.
+All numbers below are normalized MSE values on the held-out test split. Hyperparameters were selected using validation MSE.
 
-| Encoder | Downstream evaluator | Test mean MSE | Test alpha MSE | Test zeta MSE |
-|---|---|---:|---:|---:|
-| CNext-U-Net forecaster | kNN regression | 0.1285 | 0.0121 | 0.2449 |
-| CNext-U-Net forecaster | Linear probe | 0.1992 | 0.1157 | 0.2827 |
+| Encoder / pretraining objective | Downstream evaluator | Test mean MSE | Test alpha MSE | Test zeta MSE | Notes |
+|---|---|---:|---:|---:|---|
+| CNext-U-Net future-frame forecasting | kNN regression | 0.1285 | 0.0121 | 0.2449 | Best final result |
+| CNext-U-Net future-frame forecasting | Linear probe | 0.1992 | 0.1157 | 0.2827 | Required frozen linear evaluation |
+| JEPA + VICReg baseline | Linear probe | 0.2485 | 0.1183 | 0.3786 | Original 224x224 baseline |
+| JEPA + VICReg baseline | kNN regression | 0.2709 | 0.0472 | 0.4946 | Original 224x224 baseline |
+| ConvNeXt JEPA + SigReg | Linear probe | 0.5829 | 0.1872 | 0.9787 | Failed run; export used only 175 train samples |
+| ConvNeXt JEPA + SigReg | kNN regression | 0.5924 | 0.2058 | 0.9790 | Failed run; export used only 175 train samples |
 
-The best final metric is obtained by kNN regression on frozen CNext-U-Net embeddings, with normalized test mean MSE `0.1285`. The required linear-probe evaluation on the same frozen encoder gives normalized test mean MSE `0.1992`.
+The best submitted result is kNN regression on frozen CNext-U-Net embeddings, with normalized test mean MSE `0.1285`. The same frozen encoder also satisfies the required linear-probe evaluation, with normalized test mean MSE `0.1992`.
+
+## Compliance With Project Constraints
+
+- Representation learning is self-supervised and trained from scratch.
+- No pretrained weights or external datasets are used.
+- The final CNext-U-Net has 18.59M total parameters and 7.34M encoder parameters, below the 100M parameter limit.
+- Physical labels are not loaded during representation learning. The pretraining scripts construct train/valid datasets with `include_labels=False`.
+- The encoder is frozen before downstream evaluation.
+- Downstream evaluation uses only a single linear layer and kNN regression.
+- Validation split metrics are used for model and hyperparameter selection.
+- The test split is used only for final reporting.
+- The final model uses 96x96 frames after TA clarification that the patch/frame size may be changed.
+
+## Repository Layout
+
+- `active_matter_ssl/`: dataset, models, pretraining scripts, embedding export, and downstream evaluation.
+- `active_matter_ssl/train_jepa.py`: JEPA training with VICReg or SigReg losses.
+- `active_matter_ssl/train_cnext_forecaster.py`: final CNext-U-Net future-frame forecaster.
+- `active_matter_ssl/export_embeddings.py`: frozen embedding export for JEPA-style encoders.
+- `active_matter_ssl/export_cnext_embeddings.py`: frozen embedding export for the CNext-U-Net encoder.
+- `active_matter_ssl/sweep_linear_probe.py`: single-linear-layer downstream regression sweep.
+- `active_matter_ssl/eval_knn.py`: kNN downstream regression sweep.
+- `experiments/`: command wrappers and short notes for the scored approaches.
+- `past_analysis/`: detailed run analysis, collapse diagnosis, and historical score reports.
+- `artifacts/`: committed final CNext checkpoints, embeddings, and downstream metrics.
+- `cnext_logs/`: final-run reproduction recipe and stdout logs.
+- `baseline.txt`: compact record of the first JEPA baseline metrics.
+
+## Approach 1: JEPA + VICReg Baseline
+
+The first completed baseline used `active_matter_ssl/train_jepa.py`, with a ConvNeXt-style JEPA encoder and a VICReg objective. The model predicts target feature maps from context feature maps while VICReg keeps the representation non-collapsed through explicit similarity, variance, and covariance terms.
+
+Architecture and training summary:
+
+- Model: `JepaModel` with `ConvEncoder` and `ConvPredictor`.
+- Parameters: 3.27M.
+- Input: 16 frames, 11 channels, 224x224 resolution.
+- Optimizer: AdamW, learning rate `5e-4`, weight decay `5e-4`.
+- Best checkpoint: epoch 5 of 12.
+- Training behavior: validation loss improved through epoch 5 and then diverged after epoch 6.
+
+Embedding-space diagnostics from the best checkpoint:
+
+- Train embedding shape: 11,550 x 128 using sliding-window export.
+- Global embedding std: 0.2237.
+- Mean per-dimension std: 0.1007.
+- Dead dimensions: 0 / 128.
+- Dimensions needed for 95% variance: 43 / 128.
+
+This run produced a healthy, non-collapsed embedding space. The downstream results were:
+
+| Evaluator | Valid mean MSE | Test mean MSE | Test alpha MSE | Test zeta MSE |
+|---|---:|---:|---:|---:|
+| Linear probe | 0.2158 | 0.2485 | 0.1183 | 0.3786 |
+| kNN regression | 0.1960 | 0.2709 | 0.0472 | 0.4946 |
+
+The baseline shows that `alpha` is easier to recover than `zeta`. kNN predicts `alpha` particularly well, while linear probing is stronger on `zeta`, suggesting that `alpha` is more locally clustered in the representation space and `zeta` is more globally linear.
+
+## Approach 2: ConvNeXt JEPA + SigReg
+
+The second completed run scaled the JEPA encoder and replaced VICReg with a SigReg-style distribution regularizer. The intent was to improve kNN behavior by encouraging the projected embedding distribution to become isotropic.
+
+Architecture and training summary:
+
+- Model: `SigRegJepaModel` with ConvEncoder, MLP projector, and MLP predictor.
+- Parameters: 9.83M.
+- Embedding dimension: 256.
+- Objective: `0.95 * pred_loss + 0.05 * sigreg_loss`.
+- Training length: 25 epochs.
+- `--target-stop-grad` was used in the corrected run to break the symmetric collapse path.
+
+Observed training failure:
+
+- `pred_loss` reached near zero by epoch 2.
+- `train_sigreg_loss` stayed near 25.7268 from epoch 2 through epoch 25.
+- `valid_sigreg_loss` stayed near 9.625 for the full run.
+- The encoder optimized the temporal prediction objective but did not learn the intended isotropic embedding distribution.
+
+Embedding diagnostics showed collapse:
+
+- Exported train embedding shape: 175 x 256 in the failed evaluation export.
+- Mean per-dimension std: 0.0176.
+- Dead dimensions: 62 / 256.
+- Dimensions needed for 95% variance: 29 / 256.
+
+The recorded downstream scores were poor:
+
+| Evaluator | Test mean MSE | Test alpha MSE | Test zeta MSE |
+|---|---:|---:|---:|
+| Linear probe | 0.5829 | 0.1872 | 0.9787 |
+| kNN regression | 0.5924 | 0.2058 | 0.9790 |
+
+These numbers are retained as a failed experiment, not as a fair comparison to the baseline. The SigReg embeddings were exported with `single_clip` mode, giving only 175 training embeddings instead of the 11,550 sliding-window embeddings used by the JEPA baseline. This export mismatch severely weakened both the linear probe and kNN evaluation. Independently, the frozen SigReg loss and dead-dimension statistics show that the intended distribution regularization did not take effect.
+
+This result motivated switching away from a weak global distribution penalty and toward a direct future-frame forecasting objective.
+
+## Final Selected Model: CNext-U-Net Future-Frame Forecaster
+
+The final selected approach uses `active_matter_ssl/train_cnext_forecaster.py`, a scratch CNext-U-Net future-frame forecaster inspired by The Well `UNetConvNext` benchmark architecture. The decoder is used only during self-supervised pretraining; downstream evaluation uses frozen encoder embeddings.
+
+Training setup:
+
+- Input: 4 context frames.
+- Target: next 1 frame.
+- Resolution: 96x96.
+- Objective: future-frame MSE over active-matter physical fields.
+- Optimizer: AdamW, learning rate `3e-4`, weight decay `5e-4`.
+- Epochs: 50.
+- Best checkpoint: `artifacts/cnext_unet96/encoder_best.pt`.
+- Parameters: 18.59M total, 7.34M encoder.
+
+The forecasting training curve showed stable learning: validation relative MSE dropped from about `0.1153` at epoch 1 to roughly `0.0025` by the end of training.
+
+Embedding export:
+
+- Encoder frozen before export.
+- One deterministic 16-frame clip per simulation.
+- Sliding 4-frame windows inside each clip.
+- Bottleneck maps pooled with avg+max pooling.
+- Embeddings saved under `artifacts/emb_cnext_unet96_avgmax/`.
+
+Downstream results:
+
+| Evaluator | Valid mean MSE | Test mean MSE | Test alpha MSE | Test zeta MSE | Best configuration |
+|---|---:|---:|---:|---:|---|
+| Linear probe | 0.0886 | 0.1992 | 0.1157 | 0.2827 | zscore features, lr 3e-4, wd 1e-4, full batch |
+| kNN regression | 0.0612 | 0.1285 | 0.0121 | 0.2449 | zscore features, k=5, euclidean, distance weights |
+
+This is the final selected encoder. It improves over the JEPA/VICReg baseline in both downstream evaluators and gives the strongest overall score with kNN regression.
 
 ## Reproducing The Final Run
 
-Set the dataset path first:
+Set the dataset path:
 
 ```bash
 export DATA_ROOT=/path/to/active_matter
@@ -171,20 +211,22 @@ python -m active_matter_ssl.eval_knn \
     --backend torch
 ```
 
-The exact server-side reproduction recipe and committed artifact list are also in `cnext_logs/REPRODUCE.md`.
+The exact server-side reproduction recipe and committed artifact list are in `cnext_logs/REPRODUCE.md`.
 
 ## Leakage Prevention
 
-The training and evaluation code is structured to prevent label leakage from the physical parameters into self-supervised representation learning:
+The training and evaluation code is structured to prevent label leakage:
 
-- `ActiveMatterWindowDataset` has an `include_labels` flag.
-- `train_jepa.py`, `train_vjepa.py`, and `train_cnext_forecaster.py` pass `include_labels=False` for representation learning.
-- Labels are exported only after the encoder is frozen.
-- The linear probe and kNN scripts fit normalizers and models from train embeddings, select hyperparameters by validation MSE, and report the selected model on test.
+- `ActiveMatterWindowDataset` supports `include_labels=False`.
+- `train_jepa.py` and `train_cnext_forecaster.py` pass `include_labels=False` for representation learning.
+- Labels are attached only when exporting frozen embeddings for downstream evaluation.
+- Downstream label normalization is fit from train labels.
+- Linear and kNN hyperparameters are selected using validation normalized MSE.
+- Test metrics are reported only after validation-based selection.
 - The committed final checkpoints are trained from scratch and do not load pretrained weights.
 
-## Limitations
+## Notes On Comparability
 
-The SIGReg experiment did not produce the intended distributional regularization effect. Its prediction loss converged rapidly, while the SIGReg statistics stayed nearly fixed, so it is treated as a negative result rather than a successful final approach.
+The original JEPA/VICReg baseline used 224x224 frames. The final CNext-U-Net model uses 96x96 frames after TA clarification that this is allowed. Therefore, the final table reports the project trajectory and final model selection, not a controlled resolution-matched ablation.
 
-The original E-JEPA/VICReg baseline was trained at 224x224, while the final CNext-U-Net forecaster was trained at 96x96 after TA clarification. Therefore, the final comparison reflects the complete project trajectory and final model choice, not a strictly controlled resolution-matched ablation.
+The SigReg downstream scores are included for completeness, but the run has two known issues: the regularization term did not affect the encoder distribution, and the first downstream export used `single_clip` mode with only 175 training embeddings. This is why it is treated as a failed experiment rather than a competitive final model.

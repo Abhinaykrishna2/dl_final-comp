@@ -1,0 +1,239 @@
+Full Analysis: JEPA Baseline vs SigReg JEPA — What Went Wrong and How to Beat the Baseline
+==============================================================================================
+
+=============================================================================
+1. FINAL RESULTS COMPARISON
+=============================================================================
+
+                          JEPA Baseline       SigReg (this run)
+                          -------------       -----------------
+Linear Probe test MSE     0.2485              0.5829
+  alpha (normalized)      0.1183              0.1872
+  zeta  (normalized)      0.3786              0.9787
+
+kNN test MSE              0.2709              0.5924
+  alpha (normalized)      0.0472              0.2058
+  zeta  (normalized)      0.4946              0.9790
+
+Best LP hyperparams       norm=zscore_l2,     norm=zscore,
+                          lr=0.003, wd=0.0    lr=0.003, wd=1e-5
+
+Best kNN hyperparams      k=10, cosine, l2    k=50, euclidean, zscore
+
+The SigReg encoder underperformed the JEPA baseline by ~2.3× on both
+linear probe and kNN. The analysis below explains the two compounding
+failures that caused this.
+
+
+=============================================================================
+2. EMBEDDING SPACE ANALYSIS
+=============================================================================
+
+                          JEPA Baseline       SigReg (this run)
+                          -------------       -----------------
+Architecture              ConvEncoder         ConvEncoder + MLP projector
+Params                    3.27M               9.83M
+Embedding dim             128                 256
+Training samples          11,550              175  (*)
+Global std                0.2237              1.6230
+Per-dim std (mean)        0.1007              0.0176
+Per-dim std (min)         0.0520              0.0068
+Dead dims (std < 0.01)    0 / 128  (0%)       62 / 256  (24%)
+Dims for 95% variance     43 / 128            29 / 256
+
+(*) This is the single most impactful number in the entire analysis.
+
+JEPA embeddings: all 128 dimensions are alive, well-spread, with no
+collapsed dimensions. The representation uses 43 effective dimensions
+out of 128, a healthy utilization.
+
+SigReg embeddings: 62 of 256 dimensions are effectively dead (std < 0.01).
+The representation uses only 29 effective dimensions out of 256. The model
+has a 2× larger embedding space but uses less of it than the baseline.
+This is the signature of representational collapse.
+
+
+=============================================================================
+3. FAILURE #1 — SIGREG DISTRIBUTION REGULARIZATION NEVER ACTIVATED
+=============================================================================
+
+The training history shows train_sigreg_loss stuck at exactly 25.7268
+from epoch 2 through epoch 25 — unchanged to 4 decimal places across
+24 consecutive epochs. valid_sigreg_loss was frozen at 9.625 for all
+25 epochs. This means the Cramér-Wold distribution matching term provided
+zero net gradient signal throughout the entire run.
+
+Root cause chain:
+  a) lejepa-lambda=0.05 means pred_coeff=0.95, sigreg_coeff=0.05.
+     The distribution term is only 5% of the total gradient signal.
+
+  b) pred_loss hit near-zero by epoch 2 (~9.7e-4), locking the encoder
+     into a fixed-point attractor for temporal prediction. The optimizer
+     found a local minimum satisfying pred_loss → 0 before the sigreg
+     term had any meaningful influence.
+
+  c) --target-stop-grad was set, which correctly breaks the trivial
+     context=target collapse. But it also means sigreg gradients only
+     flow through context_projection (half the embeddings), halving
+     the effective gradient magnitude from an already-weak 5% term.
+
+  d) dist.all_reduce inside sigreg_loss computes the global statistic
+     correctly for the forward pass (loss value), but the backward pass
+     only sees local gradients — not the globally-reduced ones. With
+     world_size=2, the effective gradient is further halved.
+
+Net result: the encoder was trained purely on pred_loss. It learned to
+predict temporal dynamics (context → target) but received no pressure
+to make its embedding distribution isotropic. The 62 dead dimensions
+are the consequence — dimensions that pred_loss never needed.
+
+The 0.05 lambda was far too conservative. Values of 0.2–0.5 are needed
+for the sigreg term to compete with pred_loss after its rapid convergence.
+
+
+=============================================================================
+4. FAILURE #2 — EXPORT MODE MISMATCH (THE BIGGER PROBLEM)
+=============================================================================
+
+This is the most critical finding: the SigReg evaluation was conducted
+on a fundamentally different scale than the JEPA baseline.
+
+  JEPA export:   11,550 training embeddings  (sliding_window mode, 66 clips/trajectory)
+  SigReg export:    175 training embeddings  (single_clip mode default, 1 clip/trajectory)
+
+The active_matter training set has 175 trajectories. The JEPA export
+used sliding_window mode, yielding 66 overlapping clips per trajectory
+for 11,550 total training examples. The SigReg export used the default
+single_clip mode, giving 1 clip per trajectory for only 175 examples.
+
+This means the linear probe for SigReg was trained on 66× fewer examples
+than the JEPA linear probe. A single linear layer trained on 175 samples
+with 256-dimensional inputs is severely underfit — the linear probe
+benchmark itself is broken by this mismatch.
+
+The kNN evaluation is even more sensitive: with only 175 training
+neighbors available, k=50 means querying 28% of the entire training
+set per sample. The sparse neighbor graph has almost no discriminative
+power for continuous-valued targets like alpha and zeta.
+
+Even if the SigReg encoder had learned perfect representations, it would
+have appeared worse than the JEPA baseline purely because of this export
+difference. The measured 2.3× performance gap is likely dominated by
+this confound rather than encoder quality alone.
+
+
+=============================================================================
+5. WHAT ALPHA AND ZETA TELL US
+=============================================================================
+
+Both models struggle with zeta (steric alignment) far more than alpha
+(active dipole strength):
+
+                          alpha MSE    zeta MSE
+JEPA linear probe         0.1183       0.3786
+JEPA kNN                  0.0472       0.4946
+SigReg linear probe       0.1872       0.9787
+SigReg kNN                0.2058       0.9790
+
+Zeta has 9 discrete values (vs alpha's 5), making it inherently harder
+to regress. The JEPA kNN achieves alpha_mse=0.047, which is excellent
+(the encoder strongly separates alpha values in embedding space). Zeta
+remains the bottleneck for both models — the physical phenomenon (steric
+alignment causing nematic ordering) may produce more subtle visual
+differences in the simulation fields than the active stress differences
+captured by alpha.
+
+Notably, for the JEPA baseline, kNN outperforms linear probe on alpha
+(0.0472 vs 0.1183) but underperforms on zeta (0.4946 vs 0.3786). This
+suggests alpha has a locally-structured embedding space (nearby embeddings
+share alpha values) while zeta is more globally linearly separable.
+
+
+=============================================================================
+6. HOW TO BEAT THE BASELINE — RANKED BY IMPACT
+=============================================================================
+
+--- Immediate (can be done now) ---
+
+Fix 1: Re-export SigReg embeddings with sliding_window mode
+  The current SigReg encoder, despite the collapse, may produce better
+  embeddings than measured because the evaluation was broken by the 175
+  vs 11550 sample mismatch. Re-export with:
+
+  python -m active_matter_ssl.export_embeddings --data-root data \
+    --checkpoint artifacts/sigreg/encoder_best.pt \
+    --out-dir artifacts/sigreg_embeddings_fixed \
+    --batch-size 32 --num-workers 8 \
+    --index-mode sliding_window
+
+  Then re-run linear probe + kNN on the fixed embeddings. This will
+  give a fair comparison. Even a partially-collapsed encoder evaluated
+  on 11550 samples may exceed the baseline on alpha prediction.
+
+--- Retraining (higher impact) ---
+
+Fix 2: Retrain SigReg with higher lambda
+  Replace --lejepa-lambda 0.05 with --lejepa-lambda 0.25 or 0.3.
+  This gives sigreg_loss 25–30% of the gradient weight instead of 5%,
+  enough to prevent the encoder from ignoring the distribution term.
+  Keep --target-stop-grad. Expected behavior: pred_loss will converge
+  more slowly (0.1–0.5 range rather than near zero), sigreg_loss will
+  show a clear downward trend instead of being frozen.
+
+Fix 3: Train the JEPA baseline longer (most reliable path)
+  The JEPA baseline best.pt is epoch 5 of 12 (it diverged after epoch 5).
+  The VICReg objective actually worked — all loss components (repr, std, cov)
+  were moving and improving through epoch 5. A fresh JEPA run for 25–30
+  epochs with a lower learning rate or stronger weight decay to prevent
+  the post-epoch-5 divergence would likely push the linear probe MSE
+  below 0.20 and kNN below 0.20.
+
+  Specifically: reduce --lr from 5e-4 to 2e-4, increase --weight-decay
+  from 5e-4 to 1e-3, and train for 30 epochs. The VICReg loss is more
+  stable than SigReg and gives clean gradient signals to all 128 dims.
+
+Fix 4: Larger JEPA model with VICReg
+  The SigReg model's encoder architecture (dims=32,64,128,256,256,
+  blocks=2,2,4,8,2) is 3× larger than the baseline. Apply this larger
+  architecture with the VICReg loss (which actually works):
+
+  --loss-type vicreg --dims 32,64,128,256,256 --num-res-blocks 2,2,4,8,2
+  --stem-patch-size 2 --lr 2e-4 --epochs 30
+
+  This combines the proven objective with a more capable backbone.
+  Expected embeddings: 256-dim, all active, high intrinsic dimensionality.
+
+--- Architecture-level (most ambitious) ---
+
+Fix 5: Increase sigreg_coeff dynamically (curriculum)
+  Start training with pred_coeff=1.0, sigreg_coeff=0.0 for 3 epochs to
+  let the encoder learn basic temporal structure. Then switch to
+  pred_coeff=0.75, sigreg_coeff=0.25 for the remaining epochs. This
+  prevents pred_loss from locking the encoder into a collapsed attractor
+  before sigreg has any influence, while still leveraging early temporal
+  learning to warm-start the distribution matching.
+
+
+=============================================================================
+7. SUMMARY
+=============================================================================
+
+The JEPA baseline (3.27M params, VICReg, 5 epochs) achieved:
+  Linear probe test MSE (normalized): 0.2485
+  kNN test MSE (normalized):          0.2709
+
+The SigReg attempt failed for two independent reasons:
+  1. lambda=0.05 made the distribution term too weak to prevent
+     the encoder from collapsing to a pred-loss-only attractor.
+     Result: 62/256 dimensions dead, sigreg_loss frozen for 25 epochs.
+
+  2. The SigReg embeddings were exported with single_clip mode,
+     yielding 175 training samples vs 11,550 for the JEPA baseline.
+     This confound alone explains most of the measured performance gap.
+
+The most reliable path to beating the baseline is Fix 3: retrain the
+JEPA baseline for 25–30 epochs with a lower learning rate (2e-4) to
+prevent the post-epoch-5 divergence observed in the original run.
+VICReg is a proven, stable objective that actually propagates gradient
+to all embedding dimensions. The baseline's weakness is not the
+objective — it's that training stopped too early at epoch 5.

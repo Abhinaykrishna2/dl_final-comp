@@ -1,0 +1,95 @@
+SigReg JEPA Training Collapse — Analysis and Diagnosis
+========================================================
+
+Overview
+--------
+During training of the SigReg-style JEPA model (SigRegJepaModel, ~9.83M parameters),
+we observed representational collapse starting around epoch 7 and persisting through
+epoch 13, which prompted termination of the run and a corrected relaunch.
+
+Observed Symptoms
+-----------------
+Epochs 7–13 showed the following completely flat metrics:
+
+  train_loss:          1.2879  (unchanged across all 7 epochs)
+  valid_loss:          0.4805  (unchanged)
+  train_sigreg_loss:  25.7268  (unchanged to 4 decimal places)
+  valid_sigreg_loss:   9.625   (unchanged)
+  pred_loss:          ~1e-5    (near zero, effectively converged)
+  learning_rate:       0.0005  (at peak, cosine decay not progressing correctly)
+
+Root Cause: Trivial Collapse via Symmetric Gradient Flow
+---------------------------------------------------------
+The SigReg JEPA model computes two views of each input — a context clip and a
+target clip — and passes both through the same encoder and projector. A predictor
+then maps the context projection to the target projection, trained with MSE loss
+(pred_loss). A distribution regularizer (sigreg_loss) pushes projected embeddings
+toward a standard Gaussian via the Cramér-Wold theorem.
+
+The collapse occurred because the target branch was NOT stopped from receiving
+gradients (the --target-stop-grad flag was omitted). With gradients flowing through
+both the context and target branches simultaneously, the optimizer found the path
+of least resistance: collapsing both branches to output nearly identical embeddings
+for any input. Once context_projection ≈ target_projection, the predictor trivially
+achieves pred_loss ≈ 0 by learning an approximate identity mapping, without the
+encoder needing to learn any meaningful temporal structure.
+
+This is a known failure mode in joint-embedding architectures. Without an asymmetry
+(such as a stop-gradient, EMA target encoder, or architectural bottleneck on the
+predictor side), the model can satisfy the prediction objective by collapsing the
+representation space rather than by learning to encode physical dynamics.
+
+Why sigreg_loss Was Flat
+------------------------
+The signature regularization loss measures how much the distribution of projected
+embeddings deviates from a standard Gaussian, scaled by the number of samples
+(scale_by_samples=True). Once the embeddings collapsed to a degenerate distribution
+(near-constant output), the Cramér-Wold statistic stabilized at a fixed non-zero
+value reflecting the gap between the collapsed distribution and a Gaussian. With
+no gradient signal driving the encoder to change its output distribution, the
+sigreg_loss had no mechanism to improve and remained frozen.
+
+The train/valid discrepancy (25.7268 vs 9.625) is expected under scale_by_samples=True:
+the statistic scales linearly with per-step sample count, and validation batches
+contribute fewer effective samples per step than training.
+
+Contributing Factor: LR Scheduler Mismatch on Resume
+-----------------------------------------------------
+The training was initially launched with batch_size=8, then resumed with batch_size=16.
+On resume, the cosine annealing scheduler's T_max was recomputed using the new
+(halved) loader length, but the scheduler's internal step counter was restored from
+the checkpoint, which was calibrated to the original loader length. This caused
+the learning rate to stall near its peak (0.0005) rather than decaying along the
+intended cosine curve, removing a natural mechanism for escaping flat regions.
+
+Fix Applied
+-----------
+The collapsed run was terminated and relaunched with two changes:
+
+1. --target-stop-grad flag added: Wraps the target encoder/projector branch in
+   torch.no_grad(), breaking the symmetric gradient flow that enabled trivial
+   collapse. The predictor must now learn to map context representations to
+   target representations that the encoder is not simultaneously being trained
+   to make identical to context representations.
+
+2. Fresh start (no --resume) with batch_size=8: Avoids the scheduler mismatch
+   and starts from random initialization so no collapsed weights persist.
+
+Expected Behavior After Fix
+---------------------------
+With --target-stop-grad, pred_loss will be higher initially (the predictor faces
+a genuinely harder prediction task) and will decrease more gradually over epochs.
+The sigreg_loss should show a downward trend as the distribution regularization
+pushes the encoder's output distribution toward a standard Gaussian, since the
+encoder is now the only branch receiving that gradient signal.
+
+Lesson for Report
+-----------------
+This collapse illustrates a fundamental design constraint in JEPA-style architectures:
+the training objective must contain a structural asymmetry that prevents the encoder
+from satisfying the prediction loss through representation collapse. In I-JEPA and
+related works, this is typically achieved via an EMA (exponential moving average)
+target encoder. In our implementation, the equivalent is a hard stop-gradient on
+the target branch. Omitting this asymmetry renders both the prediction loss and
+the distribution regularization ineffective, as the model discovers a degenerate
+fixed point that satisfies both objectives simultaneously.

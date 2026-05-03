@@ -1,0 +1,408 @@
+Representation Learning for Physical Simulations — Method Report
+=================================================================
+Project: Active Matter (The Well) | Evaluation: Linear Probe + kNN MSE
+Date: May 2026
+
+This report documents three representation learning approaches attempted
+for the active_matter dataset, covering architectures, training dynamics,
+failure analysis, and downstream evaluation scores.
+
+
+=============================================================================
+PART 1 — JEPA BASELINE (VICReg)
+=============================================================================
+
+Architecture
+------------
+Model: JepaModel (ConvEncoder + ConvPredictor)
+Total parameters: 3.27M
+
+ConvEncoder:
+  - Stem: 3D Conv (11 → 16 ch, kernel=4×4, patch_size=1×1, same-pad)
+  - Stage 1: 3 ResidualBlocks @ 16ch   [3D spatial]
+  - Stage 2: 3 ResidualBlocks @ 32ch   [3D spatial]
+  - Stage 3: 3 ResidualBlocks @ 64ch   [3D spatial]
+  - Stage 4: 9 ResidualBlocks @ 128ch  [3D spatial]
+  - Stage 5: 3 ResidualBlocks @ 128ch  [2D spatial, temporal squeezed]
+  - Output: (B, 128, H/16, W/16) feature map, avg-pooled to (B, 128)
+  ResidualBlock: depthwise conv-7 → LayerNorm → Linear(4×expand) → GELU → Linear
+
+ConvPredictor:
+  - Conv2d(128→256, k=2, pad=1) → ResidualBlock(256) → Conv2d(256→128, k=2)
+  - Predicts target feature map from context feature map
+
+Training Objective: VICReg
+  total_loss = sim_coeff(2.0) * repr_loss
+             + std_coeff(40.0) * std_loss
+             + cov_coeff(2.0) * cov_loss
+  - repr_loss: MSE between predicted and target feature maps
+  - std_loss: hinge penalty keeping per-dim std above 1.0
+  - cov_loss: penalty on off-diagonal covariance matrix entries
+
+Training Configuration
+----------------------
+  Epochs: 12 (best at epoch 5, diverged after)
+  Batch size: 8 per GPU × 2 GPUs = 16 global
+  Optimizer: AdamW, lr=5e-4, weight_decay=5e-4
+  Scheduler: Linear warmup (5 epochs) → CosineAnnealingLR
+  Grad clip: 1.0
+  AMP: bfloat16
+  Resolution: 224×224, 16 frames, 11 channels
+
+Training Dynamics (epoch-by-epoch)
+-----------------------------------
+  Epoch 1:  train_loss=30.11  valid_loss=16.22  (cov_loss dominating: 12.05)
+  Epoch 2:  train_loss=11.95  valid_loss=11.47  (fast cov_loss reduction)
+  Epoch 3:  train_loss= 8.94  valid_loss= 9.35
+  Epoch 4:  train_loss= 7.87  valid_loss= 8.76
+  Epoch 5:  train_loss= 7.62  valid_loss= 8.51  ← BEST (checkpoint saved)
+  Epoch 6:  train_loss= 7.69  valid_loss= 8.54  (valid begins rising → divergence)
+  Epoch 7:  train_loss= 7.89  valid_loss= 8.80
+  ...
+  Epoch 12: train_loss= 9.23  valid_loss=10.27  (continued divergence)
+
+All three VICReg components (repr, std, cov) decreased steadily through
+epoch 5. The std_loss and cov_loss started climbing after epoch 6 as the
+encoder overfit its temporal prediction objective at the expense of the
+variance and covariance constraints, triggering divergence.
+
+Embedding Space Properties (from best.pt, train split)
+-------------------------------------------------------
+  Shape: (11,550, 128)  [sliding_window export, 66 clips/trajectory]
+  Global std: 0.2237
+  Per-dim std: mean=0.1007, min=0.0520, max=0.2843
+  Dead dimensions (std < 0.01): 0 / 128
+  Dimensions for 95% variance: 43 / 128
+
+All 128 dimensions are active. The representation uses 43 effective
+dimensions — a healthy utilization indicating the encoder learned a
+diverse, non-collapsed feature space.
+
+Downstream Evaluation Results
+------------------------------
+  Linear Probe (best sweep configuration):
+    feature_norm: zscore_l2 | lr: 0.003 | weight_decay: 0.0 | batch_size: full
+    valid mean MSE (normalized): 0.2158
+    test  mean MSE (normalized): 0.2485
+      alpha MSE (normalized):    0.1183
+      zeta  MSE (normalized):    0.3786
+    test  mean MSE (raw):        5.27
+
+  kNN Regressor (best sweep configuration):
+    feature_norm: l2 | k=10 | metric: cosine | weights: distance
+    valid mean MSE (normalized): 0.1960
+    test  mean MSE (normalized): 0.2709
+      alpha MSE (normalized):    0.0472
+      zeta  MSE (normalized):    0.4946
+    test  mean MSE (raw):        6.77
+
+  PRIMARY METRIC: Linear probe test MSE (normalized) = 0.2485
+
+Key observation: kNN achieves dramatically better alpha prediction
+(0.0472) than linear probe (0.1183), suggesting alpha values create
+locally-clustered embedding neighborhoods. Zeta is harder for kNN
+(0.4946) than linear probe (0.3786), suggesting zeta separations are
+more globally linear than locally structured.
+
+
+=============================================================================
+PART 2 — CONVNEXT SIGREG JEPA (FAILED EXPERIMENT)
+=============================================================================
+
+Architecture
+------------
+Model: SigRegJepaModel (ConvEncoder + MLPHead projector + MLPHead predictor)
+Total parameters: 9.83M (3× larger than baseline)
+
+ConvEncoder (scaled up):
+  - Stem: 3D Conv (11 → 32 ch, stride=2×2, patch_size=2)  ← key change
+  - Stage 1: 2 ResidualBlocks @ 32ch
+  - Stage 2: 2 ResidualBlocks @ 64ch
+  - Stage 3: 4 ResidualBlocks @ 128ch
+  - Stage 4: 8 ResidualBlocks @ 256ch
+  - Stage 5: 2 ResidualBlocks @ 256ch
+  - Output: avg-pooled to (B, 256) embedding
+
+MLPHead Projector (3 layers):
+  Linear(256→1024) → LayerNorm → GELU → Linear(1024→1024) → LayerNorm → GELU → Linear(1024→256)
+
+MLPHead Predictor (2 layers):
+  Linear(256→1024) → LayerNorm → GELU → Linear(1024→256)
+
+Training Objective: SIGReg JEPA (LeJEPA)
+  total_loss = pred_coeff(0.95) * MSE(predicted_proj, target_proj)
+             + sigreg_coeff(0.05) * sigreg_loss(cat[context_proj, target_proj])
+
+  sigreg_loss: Cramér-Wold theorem — measures deviation of projected
+  embedding distribution from a standard isotropic Gaussian, via
+  randomized 1D projections and characteristic function matching.
+  Theory: if embeddings match N(0,I), kNN with Euclidean distance
+  becomes an optimal regression estimator (isotropic geometry).
+
+Training Configuration
+----------------------
+  Epochs: 25
+  Batch size: 16 per GPU × 2 GPUs = 32 global
+  Optimizer: AdamW, lr=5e-4, weight_decay=5e-4
+  Scheduler: Linear warmup (5 epochs) → CosineAnnealingLR
+  --target-stop-grad: enabled (stop gradient on target branch)
+  AMP: bfloat16
+
+Training Dynamics
+-----------------
+  Epoch 1:  train_loss=1.3558  pred_loss=0.0233  sigreg_loss=26.649
+  Epoch 2:  train_loss=1.2888  pred_loss=0.0010  sigreg_loss=25.727  ← FROZEN
+  Epoch 3:  train_loss=1.2883  pred_loss=0.0004  sigreg_loss=25.727
+  ...
+  Epoch 13: train_loss=1.2879  pred_loss=2.4e-5  sigreg_loss=25.727
+  ...
+  Epoch 25: train_loss=1.2879  pred_loss=7.6e-7  sigreg_loss=25.727  ← STILL FROZEN
+
+  valid_sigreg_loss: 9.625 for ALL 25 epochs (never changed once)
+  train_sigreg_loss: 25.727 for epochs 2–25 (unchanged to 4 decimal places)
+  pred_loss: converged to ~7.6e-7 (near-machine-zero)
+
+Failure Analysis
+----------------
+The SigReg experiment failed due to three compounding problems:
+
+[1] lejepa-lambda=0.05 was too conservative
+    pred_coeff=0.95 gives the reconstruction term 95% of the gradient
+    weight. pred_loss converged to near-zero by epoch 2 — the encoder
+    found a local minimum for temporal prediction before the distribution
+    term had any meaningful influence. Once pred_loss ≈ 0, the optimizer
+    had no incentive to move the encoder, and the sigreg gradient (5%)
+    was too weak to overcome the flat landscape.
+
+[2] Stop-gradient + DDP further diluted sigreg gradient
+    With --target-stop-grad, only context_projection carries sigreg
+    gradients (half the concatenated embeddings are detached). In DDP
+    with world_size=2, dist.all_reduce computes the global statistic
+    for the forward pass but gradients only flow locally — the effective
+    sigreg gradient is 1/2 × 1/2 = 1/4 of what it appears to be from
+    the loss coefficient alone.
+
+[3] Export mode mismatch (critical evaluation bug)
+    The SigReg embeddings were initially exported with single_clip mode
+    (default), yielding only 175 training samples for the linear probe
+    and kNN, versus 11,550 for the JEPA baseline (sliding_window mode).
+    Training a linear layer on 175 samples with 256-dimensional inputs
+    is severely data-starved, making the evaluation comparison invalid.
+    This was identified post-hoc and re-export with sliding_window was
+    initiated to obtain a fair comparison.
+
+Embedding Space Properties (collapsed encoder, train split)
+-----------------------------------------------------------
+  Shape: (175, 256)   [single_clip export — BROKEN, 66× fewer samples]
+  Global std: 1.6230
+  Per-dim std: mean=0.0176, min=0.0068, max=0.0519
+  Dead dimensions (std < 0.01): 62 / 256  (24% of embedding space)
+  Dimensions for 95% variance: 29 / 256
+
+62 out of 256 dimensions carry essentially no information. The encoder
+used only 29 effective dimensions despite having 256 available — worse
+utilization than the 43/128 achieved by the smaller JEPA baseline.
+This directly confirms representational collapse: pred_loss drove the
+encoder to a fixed point that didn't require the full embedding space.
+
+Downstream Evaluation Results (broken export, 175 samples)
+-----------------------------------------------------------
+  Linear Probe test MSE (normalized): 0.5829
+    alpha: 0.1872  |  zeta: 0.9787
+
+  kNN test MSE (normalized): 0.5924
+    alpha: 0.2058  |  zeta: 0.9790
+
+  These scores are invalid for comparison due to the 175 vs 11,550
+  training sample mismatch. Re-evaluation on properly exported
+  embeddings (sliding_window, 11,550 samples) is pending.
+
+Why SIGReg Failed vs Why VICReg Succeeded
+------------------------------------------
+VICReg's explicit std_loss and cov_loss terms act as per-dimension
+constraints that are always active, regardless of pred_loss magnitude.
+Even when repr_loss is small, std_loss still fires whenever any
+dimension's std drops below 1.0, and cov_loss still penalizes
+correlated dimensions. These per-step gradient signals prevented
+collapse throughout training.
+
+SIGReg's distribution matching is a global statistic — it fires only
+when the aggregate distribution deviates from a Gaussian. If pred_loss
+drove the encoder to a degenerate distribution and the sigreg gradient
+was too weak to pull it out, the statistic stabilizes at a non-zero
+value representing the gap between the collapsed distribution and a
+Gaussian, and then simply stays there. Unlike VICReg's per-dimension
+terms, there is no local corrective signal.
+
+
+=============================================================================
+PART 3 — V-JEPA WITH EMA TARGET ENCODER AND SPATIAL MASKING
+=============================================================================
+
+Motivation
+----------
+The JEPA baseline and SigReg both used the same training paradigm:
+encode a context clip → predict the target clip's representation →
+match with MSE. This requires the encoder to learn temporal dynamics
+but does not force it to build spatially rich representations within
+a single clip, since the predictor can learn simple temporal shifts.
+
+V-JEPA (Video Joint-Embedding Predictive Architecture) addresses this
+by introducing two changes that make the prediction task fundamentally
+harder and richer:
+  1. Spatial masking: the encoder sees only unmasked regions; it must
+     predict masked regions from partial observations.
+  2. EMA target encoder: the target representation comes from a slowly-
+     updating momentum copy of the online encoder, not the same frozen
+     weights. This prevents trivial collapse without stop-gradient by
+     ensuring the target always leads the online encoder slightly.
+
+Architecture
+------------
+Model: VJepaModel
+Components:
+  - Online encoder:  ConvEncoder (same architecture, same param count)
+  - Target encoder:  ConvEncoder (identical architecture, EMA weights)
+  - Predictor:       ConvPredictor (same as JEPA baseline)
+  - mask_token:      learnable (B, 11, 1, 1, 1) tensor
+
+Online encoder and predictor receive gradients normally.
+Target encoder is frozen (requires_grad=False) and updated exclusively
+via EMA after each training step: θ_target ← m·θ_target + (1-m)·θ_online
+
+EMA Momentum Schedule
+---------------------
+Momentum anneals from base (0.996) to final (1.0) via cosine schedule
+over the full training run. Early in training the target encoder updates
+quickly, allowing the representation to evolve. Late in training it
+slows, acting like a stable teacher — a curriculum from flexible to rigid.
+
+  m(t) = m_final - (m_final - m_base) × 0.5 × (1 + cos(π × t/T))
+
+Spatial Block Masking
+---------------------
+At each training step, a binary spatial mask is sampled for the feature
+grid:
+  - Target mask ratio: 55% of spatial positions masked
+  - Block-based: rectangular blocks of size 1–3 grid cells are randomly
+    placed until the mask ratio is met (up to 8 blocks)
+  - min_keep=1: at least one spatial position remains visible
+
+The mask is applied in input space: masked positions are replaced by
+the learnable mask_token before being fed to the online encoder.
+
+Forward Pass
+------------
+  masked_input  = replace(context, mask, mask_token)
+  context_feats = encoder(masked_input)          # (B, C, H, W)
+  pred_feats    = predictor(context_feats)        # (B, C, H, W)
+  target_feats  = target_encoder(target)          # (B, C, H, W), no_grad
+
+Loss: masked_latent_prediction_loss
+  - Computes MSE only at masked spatial positions (mask=1)
+  - Applies LayerNorm to target features before comparison (normalize_target=True)
+  - This normalization stabilizes training by preventing the target
+    encoder from collapsing to zero-norm representations
+
+  loss = sum((pred - normalize(target))² × mask) / count(mask=1)
+
+Training Mode Options
+---------------------
+  --target-mode future    : predict NEXT 16 frames' features from current
+  --target-mode same_clip : predict masked regions from same clip
+                            (harder spatial task, no temporal shift)
+
+Key Differences from JEPA Baseline
+-----------------------------------
+  Property                   JEPA Baseline    V-JEPA EMA Masking
+  -------------------------  ---------------  -------------------
+  Target encoder update      Stop-gradient    EMA (momentum=0.996→1.0)
+  Spatial masking            No               Yes (55% ratio)
+  Prediction task            Full clip→clip   Partial→masked regions
+  Collapse prevention        VICReg terms     EMA stability + task hardness
+  Resolution                 224×224          96×96 (faster iteration)
+  Loss                       VICReg           Masked MSE (normalized target)
+
+Why EMA Prevents Collapse
+--------------------------
+The EMA encoder is always slightly ahead of the online encoder. The
+prediction task is moving: the online encoder must constantly chase a
+target that evolves. There is no fixed-point where both encoders
+simultaneously output the same constant — any collapse of the online
+encoder would cause it to diverge from the EMA target, increasing loss.
+This is fundamentally more robust than stop-gradient, which allows
+collapse as long as context_proj ≈ target_proj in the same parameter space.
+
+Training Configuration (to be run)
+------------------------------------
+  torchrun --nproc_per_node=2 -m active_matter_ssl.train_vjepa \
+    --data-root data \
+    --out-dir artifacts/vjepa \
+    --epochs 40 \
+    --batch-size 16 \
+    --resolution 96 \
+    --amp \
+    --target-mode future \
+    --mask-ratio 0.55 \
+    --ema-momentum 0.996 \
+    --ema-final-momentum 1.0 \
+    --normalize-target \
+    --wandb-run-name vjepa-ema-masking-v1
+
+  Resolution is set to 96×96 (vs 224×224) for faster iteration — the
+  spatial feature grid at 96/16=6×6 is sufficient for block masking
+  while reducing I/O and compute per step by ~5.4×.
+
+Status
+------
+  Implementation: COMPLETE (active_matter_ssl/train_vjepa.py, active_matter_ssl/models.py)
+  Training: PENDING
+  Downstream evaluation scores: NOT YET AVAILABLE
+
+
+=============================================================================
+PART 4 — SUMMARY TABLE AND PATH FORWARD
+=============================================================================
+
+Experiment Comparison (normalized MSE, lower is better)
+---------------------------------------------------------
+Method               Params  Epochs  LP test MSE   kNN test MSE  Status
+-------------------  ------  ------  ------------  ------------  -------
+JEPA + VICReg         3.27M    5*    0.2485        0.2709        DONE ✓
+ConvNeXt + SigReg     9.83M   25     0.5829†       0.5924†       DONE (failed)
+V-JEPA + EMA mask     3.27M   40     pending       pending       TRAINING NEXT
+
+* Best epoch was 5; training stopped at 12 due to post-epoch-5 divergence.
+† Evaluated on 175 training samples (single_clip export bug). Re-evaluation
+  on 11,550 samples (sliding_window) is in progress; scores will update.
+
+Alpha vs Zeta Difficulty (JEPA baseline, normalized MSE)
+---------------------------------------------------------
+                     alpha MSE   zeta MSE
+Linear Probe          0.1183      0.3786
+kNN                   0.0472      0.4946
+
+Alpha (5 discrete values) is substantially easier. The kNN alpha score
+of 0.0472 is near-perfect for a 5-class regression problem — the encoder
+strongly separates alpha in embedding space. Zeta (9 discrete values)
+remains the primary bottleneck for both models.
+
+Lessons Learned
+---------------
+1. VICReg is robust because its per-dimension constraints (std, cov) are
+   always locally active. SIGReg's global distribution statistic can get
+   trapped once pred_loss converges, especially at low lambda (0.05).
+
+2. Evaluation methodology must be consistent. Exporting with single_clip
+   vs sliding_window produces 66× fewer training samples and makes any
+   comparison invalid.
+
+3. Training duration matters for VICReg. The baseline best was at epoch 5
+   of 12 with visible divergence after. A fresh run with lower lr (2e-4)
+   and stronger weight_decay (1e-3) targeting 25–30 epochs is the most
+   reliable path to beating 0.2485 MSE without architectural changes.
+
+4. EMA target encoders structurally prevent the collapse that both the
+   baseline (via VICReg regularization) and SigReg (via stop-grad +
+   sigreg_loss) attempted to prevent via external penalties. V-JEPA
+   bakes anti-collapse into the training dynamics themselves.
