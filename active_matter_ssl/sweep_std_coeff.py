@@ -26,7 +26,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "train_args",
         nargs=argparse.REMAINDER,
-        help="Extra args forwarded to physrl.train_jepa after '--'.",
+        help="Extra args forwarded to active_matter_ssl.train_jepa after '--'.",
     )
     return parser.parse_args()
 
@@ -74,11 +74,11 @@ def _build_command(
         command.extend(
             [
                 "-m",
-                "physrl.train_jepa",
+                "active_matter_ssl.train_jepa",
             ]
         )
     else:
-        command = [sys.executable, "-m", "physrl.train_jepa"]
+        command = [sys.executable, "-m", "active_matter_ssl.train_jepa"]
 
     command.extend(
         [

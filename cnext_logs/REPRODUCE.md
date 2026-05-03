@@ -17,7 +17,7 @@ export DATA_ROOT=/root/data        # change to /scratch/$USER/data on HPC
 export RUN_ROOT=/root/dl_final-comp/artifacts/cnext_unet96
 
 # 1. Train the CNext-U-Net forecaster (50 epochs, ~30 min on 1x B200).
-python -m physrl.train_cnext_forecaster \
+python -m active_matter_ssl.train_cnext_forecaster \
     --data-root "$DATA_ROOT" --out-dir "$RUN_ROOT" \
     --epochs 50 --batch-size 16 --num-workers 4 --prefetch-factor 4 \
     --resolution 96 --context-frames 4 --target-frames 1 \
@@ -26,14 +26,14 @@ python -m physrl.train_cnext_forecaster \
     --wandb-mode online --wandb-run-name cnext-unet96-4to1
 
 # 2. Export frozen-encoder embeddings on every split (~3 min).
-python -m physrl.export_cnext_embeddings \
+python -m active_matter_ssl.export_cnext_embeddings \
     --data-root "$DATA_ROOT" \
     --checkpoint "$RUN_ROOT/encoder_best.pt" \
     --out-dir artifacts/emb_cnext_unet96_avgmax \
     --batch-size 64 --pool avgmax --clip-frames 16 --window-stride 1 --amp
 
 # 3. Linear-probe sweep (~5 min, 36 trials with patience=25).
-python -m physrl.sweep_linear_probe \
+python -m active_matter_ssl.sweep_linear_probe \
     --train-file artifacts/emb_cnext_unet96_avgmax/train.npz \
     --valid-file artifacts/emb_cnext_unet96_avgmax/valid.npz \
     --test-file  artifacts/emb_cnext_unet96_avgmax/test.npz \
@@ -41,7 +41,7 @@ python -m physrl.sweep_linear_probe \
     --epochs 200 --patience 25
 
 # 4. kNN sweep (~2 min, 72 trials).
-python -m physrl.eval_knn \
+python -m active_matter_ssl.eval_knn \
     --train-file artifacts/emb_cnext_unet96_avgmax/train.npz \
     --valid-file artifacts/emb_cnext_unet96_avgmax/valid.npz \
     --test-file  artifacts/emb_cnext_unet96_avgmax/test.npz \
