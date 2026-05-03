@@ -169,8 +169,8 @@ CNext-U-Net forecasting & kNN & \textbf{0.0989} & \textbf{0.0121} & \textbf{0.18
 CNext-U-Net forecasting & Linear & 0.1043 & 0.0371 & 0.1715 & required linear eval. \\
 JEPA + VICReg & Linear & 0.2485 & 0.1183 & 0.3786 & original baseline \\
 JEPA + VICReg & kNN & 0.2709 & 0.0472 & 0.4946 & original baseline \\
-ConvNeXt JEPA + SigReg & Linear & 0.5829 & 0.1872 & 0.9787 & failed export/collapse \\
-ConvNeXt JEPA + SigReg & kNN & 0.5924 & 0.2058 & 0.9790 & failed export/collapse \\
+ConvNeXt JEPA + SigReg & Linear & 0.5829 & 0.1872 & 0.9787 & SigReg frozen all 25 epochs; unfair vs.\ JEPA baseline \\
+ConvNeXt JEPA + SigReg & kNN & 0.5924 & 0.2058 & 0.9790 & SigReg frozen all 25 epochs; unfair vs.\ JEPA baseline \\
 \bottomrule
 \end{tabular}
 \end{table*}
@@ -189,7 +189,11 @@ The JEPA/VICReg baseline learned a healthy embedding space. The exported train e
 
 \subsection{SigReg Failed for Two Separate Reasons}
 
-The SigReg run was intended to improve distance-based regression by making embeddings isotropic. Instead, it exposed two important pitfalls. First, the regularizer did not get traction: from epoch 2 to epoch 25, train SigReg loss stayed around 25.7268 and validation SigReg loss stayed around 9.625. Prediction loss fell to near zero, so optimization effectively became a pred-loss-only fixed point. Second, the downstream export used \texttt{single\_clip} mode, producing only 175 train embeddings rather than the 11,550 sliding-window embeddings used by the JEPA baseline. This made the reported linear and kNN scores poor and not directly comparable.
+The SigReg run was intended to improve distance-based regression by making embeddings isotropic. Instead, it exposed two independent failures.
+
+\textbf{Regularizer never activated.} Training finished, but \texttt{train\_sigreg\_loss} stayed frozen at 25.7268 and \texttt{valid\_sigreg\_loss} at 9.625 for all 25 epochs, unchanged from epoch 2 to epoch 25. \texttt{--target-stop-grad} fixed the trivial collapse, but the distribution term never got traction. The root cause: \texttt{pred\_loss} hit near-zero by epoch 2 (${\approx}9.7\times10^{-4}$) and the encoder locked into a local minimum. With \texttt{lejepa-lambda=0.05}, the SigReg gradient carried only 5\% of the total weight --- too weak to pull the encoder out once prediction was solved. The distribution regularization provided effectively zero gradient signal for the entire run. The result is an encoder trained purely on \texttt{pred\_loss}: a temporal prediction model that learned to map context$\to$target representations, but whose embedding distribution is not isotropic. The kNN benefit SigReg was supposed to provide did not materialize. The model is still notable --- at 9.83M parameters it is $3\times$ larger than the JEPA baseline and \texttt{pred\_loss} converged to ${\approx}7.5\times10^{-7}$ --- but not for the theoretical reasons intended.
+
+\textbf{Export mismatch.} The downstream export used \texttt{single\_clip} mode: one deterministic embedding per trajectory, the same trajectory-level protocol the CNext model also uses. The JEPA baseline evaluation used sliding-window mode instead, producing 11,550 training embeddings --- one per overlapping window across all trajectories. That gives JEPA a large advantage in downstream training data and makes the comparison unfair in JEPA's favour. Both failures act simultaneously on the SigReg scores, making them invalid as a fair comparison against either model.
 
 The embedding diagnostics agree with collapse: 62 of 256 dimensions had standard deviation below 0.01, and only 29 dimensions explained 95\% of variance. The model was larger than the baseline but used less of its representation space. This negative result changed the direction of the project: rather than increasing regularizer complexity, we moved to an objective with a stronger physical learning signal.
 

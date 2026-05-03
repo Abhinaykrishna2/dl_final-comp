@@ -14,8 +14,8 @@ All numbers below are normalized MSE values on the held-out test split. Hyperpar
 | CNext-U-Net future-frame forecasting | Linear probe | 0.1043 | 0.0371 | 0.1715 | Required frozen linear evaluation; avg pooling |
 | JEPA + VICReg baseline | Linear probe | 0.2485 | 0.1183 | 0.3786 | Original 224x224 baseline |
 | JEPA + VICReg baseline | kNN regression | 0.2709 | 0.0472 | 0.4946 | Original 224x224 baseline |
-| ConvNeXt JEPA + SigReg | Linear probe | 0.5829 | 0.1872 | 0.9787 | Failed run; export used only 175 train samples |
-| ConvNeXt JEPA + SigReg | kNN regression | 0.5924 | 0.2058 | 0.9790 | Failed run; export used only 175 train samples |
+| ConvNeXt JEPA + SigReg | Linear probe | 0.5829 | 0.1872 | 0.9787 | SigReg term frozen all 25 epochs; export bug (175 vs 11,550 train samples) |
+| ConvNeXt JEPA + SigReg | kNN regression | 0.5924 | 0.2058 | 0.9790 | SigReg term frozen all 25 epochs; export bug (175 vs 11,550 train samples) |
 
 The best submitted result is kNN regression on average-pooled frozen CNext-U-Net embeddings, with normalized test mean MSE `0.0989`. The same frozen encoder also satisfies the required linear-probe evaluation, with normalized test mean MSE `0.1043`.
 
@@ -99,10 +99,13 @@ Architecture and training summary:
 
 Observed training failure:
 
-- `pred_loss` reached near zero by epoch 2.
-- `train_sigreg_loss` stayed near 25.7268 from epoch 2 through epoch 25.
-- `valid_sigreg_loss` stayed near 9.625 for the full run.
-- The encoder optimized the temporal prediction objective but did not learn the intended isotropic embedding distribution.
+The training finished but the SigReg regularization never worked. `train_sigreg_loss` is frozen at 25.7268 and `valid_sigreg_loss` at 9.625 for all 25 epochs, unchanged from epoch 2 to epoch 25. `--target-stop-grad` fixed the trivial collapse but the distribution term never got traction.
+
+**What happened:** `pred_loss` hit near-zero by epoch 2 (~9.7e-4) and the encoder locked into a local minimum. The SigReg gradient at `lejepa-lambda=0.05` (only 5% weight) was too weak to pull it out. The distribution regularization provided effectively zero gradient signal the entire run.
+
+**What the encoder actually learned:** It is a temporal prediction model — it learned to map context → target representations, but the embedding distribution is not isotropic. The kNN benefit expected from SigReg did not materialize.
+
+The model is still worth examining: it is 3× larger than the JEPA baseline (9.83M vs 3.27M params) and `pred_loss` converged very well (~7.5e-7). However, the downstream scores below cannot be treated as a fair comparison because the embedding export also used `single_clip` mode, yielding only 175 training embeddings instead of the 11,550 sliding-window embeddings used by the JEPA baseline. Both failures — the frozen regularizer and the export mismatch — need to be corrected before a valid comparison is possible.
 
 Embedding diagnostics showed collapse:
 
@@ -118,9 +121,7 @@ The recorded downstream scores were poor:
 | Linear probe | 0.5829 | 0.1872 | 0.9787 |
 | kNN regression | 0.5924 | 0.2058 | 0.9790 |
 
-These numbers are retained as a failed experiment, not as a fair comparison to the baseline. The SigReg embeddings were exported with `single_clip` mode, giving only 175 training embeddings instead of the 11,550 sliding-window embeddings used by the JEPA baseline. This export mismatch severely weakened both the linear probe and kNN evaluation. Independently, the frozen SigReg loss and dead-dimension statistics show that the intended distribution regularization did not take effect.
-
-This result motivated switching away from a weak global distribution penalty and toward a direct future-frame forecasting objective.
+These scores are retained for completeness but are not a fair comparison to the baseline for the two reasons documented above. This result motivated switching away from a weak global distribution penalty and toward a direct future-frame forecasting objective.
 
 ## Final Selected Model: CNext-U-Net Future-Frame Forecaster
 
@@ -247,4 +248,4 @@ The training and evaluation code is structured to prevent label leakage:
 
 The original JEPA/VICReg baseline used 224x224 frames. The final CNext-U-Net model uses 96x96 frames after TA clarification that this is allowed. The repository now includes a `baseline_jepa` 96x96 rerun wrapper so the baseline can be recomputed under the same frame size; until those new metrics are available, the final table should be read as the project trajectory and final model selection rather than a controlled resolution-matched ablation.
 
-The SigReg downstream scores are included for completeness, but the run has two known issues: the regularization term did not affect the encoder distribution, and the first downstream export used `single_clip` mode with only 175 training embeddings. This is why it is treated as a failed experiment rather than a competitive final model.
+The SigReg downstream scores are included for completeness, but the run has two independent failures: (1) `train_sigreg_loss` was frozen at 25.7268 from epoch 2 to epoch 25 — the distribution regularization provided effectively zero gradient signal because `pred_loss` hit near-zero first and the 5% SigReg weight was too weak to move the encoder out of that local minimum; (2) the downstream export used `single_clip` mode, giving only 175 training embeddings against the 11,550 used by the JEPA baseline. The reported scores reflect both failures simultaneously and cannot be used as a fair comparison.
