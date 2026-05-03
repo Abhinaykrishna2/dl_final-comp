@@ -10,14 +10,14 @@ All numbers below are normalized MSE values on the held-out test split. Hyperpar
 
 | Encoder / pretraining objective | Downstream evaluator | Test mean MSE | Test alpha MSE | Test zeta MSE | Notes |
 |---|---|---:|---:|---:|---|
-| CNext-U-Net future-frame forecasting | kNN regression | 0.1285 | 0.0121 | 0.2449 | Best final result |
-| CNext-U-Net future-frame forecasting | Linear probe | 0.1992 | 0.1157 | 0.2827 | Required frozen linear evaluation |
+| CNext-U-Net future-frame forecasting | kNN regression | 0.0989 | 0.0121 | 0.1857 | Best final result; avg pooling |
+| CNext-U-Net future-frame forecasting | Linear probe | 0.1043 | 0.0371 | 0.1715 | Required frozen linear evaluation; avg pooling |
 | JEPA + VICReg baseline | Linear probe | 0.2485 | 0.1183 | 0.3786 | Original 224x224 baseline |
 | JEPA + VICReg baseline | kNN regression | 0.2709 | 0.0472 | 0.4946 | Original 224x224 baseline |
 | ConvNeXt JEPA + SigReg | Linear probe | 0.5829 | 0.1872 | 0.9787 | Failed run; export used only 175 train samples |
 | ConvNeXt JEPA + SigReg | kNN regression | 0.5924 | 0.2058 | 0.9790 | Failed run; export used only 175 train samples |
 
-The best submitted result is kNN regression on frozen CNext-U-Net embeddings, with normalized test mean MSE `0.1285`. The same frozen encoder also satisfies the required linear-probe evaluation, with normalized test mean MSE `0.1992`.
+The best submitted result is kNN regression on average-pooled frozen CNext-U-Net embeddings, with normalized test mean MSE `0.0989`. The same frozen encoder also satisfies the required linear-probe evaluation, with normalized test mean MSE `0.1043`.
 
 ## Compliance With Project Constraints
 
@@ -33,28 +33,30 @@ The best submitted result is kNN regression on frozen CNext-U-Net embeddings, wi
 
 ## Repository Layout
 
-- `active_matter_ssl/`: dataset, models, pretraining scripts, embedding export, and downstream evaluation.
-- `active_matter_ssl/train_jepa.py`: JEPA training with VICReg or SigReg losses.
+- `active_matter_ssl/`: dataset, models, pretraining scripts, embedding export, and downstream evaluation for the final CNext and shared evaluators.
+- `baseline_jepa/`: isolated JEPA/VICReg baseline package defaulted to 96x96 for a controlled rerun against the final CNext model.
+- `baseline_jepa/train_jepa.py`: 96x96 JEPA/VICReg baseline rerun entry point.
+- `active_matter_ssl/train_jepa.py`: historical JEPA training with VICReg or SigReg losses.
 - `active_matter_ssl/train_cnext_forecaster.py`: final CNext-U-Net future-frame forecaster.
 - `active_matter_ssl/export_embeddings.py`: frozen embedding export for JEPA-style encoders.
 - `active_matter_ssl/export_cnext_embeddings.py`: frozen embedding export for the CNext-U-Net encoder.
 - `active_matter_ssl/sweep_linear_probe.py`: single-linear-layer downstream regression sweep.
 - `active_matter_ssl/eval_knn.py`: kNN downstream regression sweep.
 - `experiments/`: command wrappers and short notes for the scored approaches.
-- `past_analysis/`: detailed run analysis, collapse diagnosis, and historical score reports.
 - `artifacts/`: committed final CNext checkpoints, embeddings, and downstream metrics.
 - `cnext_logs/`: final-run reproduction recipe and stdout logs.
-- `baseline.txt`: compact record of the first JEPA baseline metrics.
+- `past_analysis/`: detailed run analysis, collapse diagnosis, and historical score reports.
 
 ## Approach 1: JEPA + VICReg Baseline
 
-The first completed baseline used `active_matter_ssl/train_jepa.py`, with a ConvNeXt-style JEPA encoder and a VICReg objective. The model predicts target feature maps from context feature maps while VICReg keeps the representation non-collapsed through explicit similarity, variance, and covariance terms.
+The first completed baseline used `active_matter_ssl/train_jepa.py`, with a ConvNeXt-style JEPA encoder and a VICReg objective. For a controlled rerun at the same frame size as the final model, the baseline code is also available as the isolated `baseline_jepa/` package; its defaults and wrapper now use 96x96 frames. The model predicts target feature maps from context feature maps while VICReg keeps the representation non-collapsed through explicit similarity, variance, and covariance terms.
 
 Architecture and training summary:
 
 - Model: `JepaModel` with `ConvEncoder` and `ConvPredictor`.
 - Parameters: 3.27M.
-- Input: 16 frames, 11 channels, 224x224 resolution.
+- Historical recorded input: 16 frames, 11 channels, 224x224 resolution.
+- Comparable rerun input: 16 frames, 11 channels, 96x96 resolution via `baseline_jepa/`.
 - Optimizer: AdamW, learning rate `5e-4`, weight decay `5e-4`.
 - Best checkpoint: epoch 5 of 12.
 - Training behavior: validation loss improved through epoch 5 and then diverged after epoch 6.
@@ -75,6 +77,12 @@ This run produced a healthy, non-collapsed embedding space. The downstream resul
 | kNN regression | 0.1960 | 0.2709 | 0.0472 | 0.4946 |
 
 The baseline shows that `alpha` is easier to recover than `zeta`. kNN predicts `alpha` particularly well, while linear probing is stronger on `zeta`, suggesting that `alpha` is more locally clustered in the representation space and `zeta` is more globally linear.
+
+To rerun this baseline at 96x96 for a resolution-matched comparison:
+
+```bash
+DATA_ROOT=/path/to/active_matter bash experiments/01_ejepa_vicreg_baseline/run_full_pipeline.sh
+```
 
 ## Approach 2: ConvNeXt JEPA + SigReg
 
@@ -136,17 +144,27 @@ Embedding export:
 - Encoder frozen before export.
 - One deterministic 16-frame clip per simulation.
 - Sliding 4-frame windows inside each clip.
-- Bottleneck maps pooled with avg+max pooling.
-- Embeddings saved under `artifacts/emb_cnext_unet96_avgmax/`.
+- Bottleneck maps pooled with average pooling after validation-based pooling selection.
+- Embeddings saved under `artifacts/emb_cnext_unet96_avg/`.
 
 Downstream results:
 
 | Evaluator | Valid mean MSE | Test mean MSE | Test alpha MSE | Test zeta MSE | Best configuration |
 |---|---:|---:|---:|---:|---|
-| Linear probe | 0.0886 | 0.1992 | 0.1157 | 0.2827 | zscore features, lr 3e-4, wd 1e-4, full batch |
-| kNN regression | 0.0612 | 0.1285 | 0.0121 | 0.2449 | zscore features, k=5, euclidean, distance weights |
+| Linear probe | 0.0593 | 0.1043 | 0.0371 | 0.1715 | zscore features, lr 3e-3, wd 0, effective full batch |
+| kNN regression | 0.0240 | 0.0989 | 0.0121 | 0.1857 | zscore features, k=3, euclidean, uniform weights |
 
-This is the final selected encoder. It improves over the JEPA/VICReg baseline in both downstream evaluators and gives the strongest overall score with kNN regression.
+This is the final selected encoder and pooling export. It improves over the JEPA/VICReg baseline in both downstream evaluators and gives the strongest overall score with kNN regression.
+
+Pooling ablation:
+
+| Pooling export | Linear test mean MSE | kNN test mean MSE |
+|---|---:|---:|
+| Average pooling | 0.1043 | 0.0989 |
+| Max pooling | 0.0959 | 0.1878 |
+| Average + max pooling | 0.1992 | 0.1285 |
+
+Average pooling had the best validation MSE for both downstream evaluators and is therefore the selected final export. The max-pooling linear test value is lower post hoc, but selecting it based on test performance would violate the validation-only selection protocol.
 
 ## Reproducing The Final Run
 
@@ -184,9 +202,9 @@ Export frozen embeddings:
 python -m active_matter_ssl.export_cnext_embeddings \
     --data-root "$DATA_ROOT" \
     --checkpoint artifacts/cnext_unet96/encoder_best.pt \
-    --out-dir artifacts/emb_cnext_unet96_avgmax \
+    --out-dir artifacts/emb_cnext_unet96_avg \
     --batch-size 64 \
-    --pool avgmax \
+    --pool avg \
     --clip-frames 16 \
     --window-stride 1 \
     --amp
@@ -196,18 +214,18 @@ Run downstream evaluation:
 
 ```bash
 python -m active_matter_ssl.sweep_linear_probe \
-    --train-file artifacts/emb_cnext_unet96_avgmax/train.npz \
-    --valid-file artifacts/emb_cnext_unet96_avgmax/valid.npz \
-    --test-file artifacts/emb_cnext_unet96_avgmax/test.npz \
-    --out-dir artifacts/lp_cnext_unet96_avgmax \
+    --train-file artifacts/emb_cnext_unet96_avg/train.npz \
+    --valid-file artifacts/emb_cnext_unet96_avg/valid.npz \
+    --test-file artifacts/emb_cnext_unet96_avg/test.npz \
+    --out-dir artifacts/lp_cnext_unet96_avg \
     --epochs 200 \
     --patience 25
 
 python -m active_matter_ssl.eval_knn \
-    --train-file artifacts/emb_cnext_unet96_avgmax/train.npz \
-    --valid-file artifacts/emb_cnext_unet96_avgmax/valid.npz \
-    --test-file artifacts/emb_cnext_unet96_avgmax/test.npz \
-    --out-dir artifacts/knn_cnext_unet96_avgmax \
+    --train-file artifacts/emb_cnext_unet96_avg/train.npz \
+    --valid-file artifacts/emb_cnext_unet96_avg/valid.npz \
+    --test-file artifacts/emb_cnext_unet96_avg/test.npz \
+    --out-dir artifacts/knn_cnext_unet96_avg \
     --backend torch
 ```
 
@@ -227,6 +245,6 @@ The training and evaluation code is structured to prevent label leakage:
 
 ## Notes On Comparability
 
-The original JEPA/VICReg baseline used 224x224 frames. The final CNext-U-Net model uses 96x96 frames after TA clarification that this is allowed. Therefore, the final table reports the project trajectory and final model selection, not a controlled resolution-matched ablation.
+The original JEPA/VICReg baseline used 224x224 frames. The final CNext-U-Net model uses 96x96 frames after TA clarification that this is allowed. The repository now includes a `baseline_jepa` 96x96 rerun wrapper so the baseline can be recomputed under the same frame size; until those new metrics are available, the final table should be read as the project trajectory and final model selection rather than a controlled resolution-matched ablation.
 
 The SigReg downstream scores are included for completeness, but the run has two known issues: the regularization term did not affect the encoder distribution, and the first downstream export used `single_clip` mode with only 175 training embeddings. This is why it is treated as a failed experiment rather than a competitive final model.

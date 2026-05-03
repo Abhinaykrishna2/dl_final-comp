@@ -2,9 +2,23 @@ temp.txt
 .DS_Store
 .venv/
 __pycache__/
+*.py[cod]
 data/
 .hf-cache-active_matter/
 wandb/
+
+# LaTeX build byproducts. Keep final_report.tex, final_report_refs.bib,
+# final_report.pdf, icml2026/, and figures under version control.
+*.aux
+*.bbl
+*.blg
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+final_report.log
+final_report.out
+icml2026/example_paper.*
+icml2026/icml_numpapers.pdf
 
 # Large training-state checkpoints that exceed GitHub's 100 MB per-file limit.
 # encoder_*.pt files are kept (~74 MB each) since they are needed for
@@ -13,6 +27,7 @@ artifacts/**/best.pt
 artifacts/**/last.pt
 artifacts/**/epoch_*.pt
 artifacts/**/wandb/
+artifacts/**/events.out.tfevents*
 
 artifacts/lp_cnext_unet96_avgmax/wandb/
 artifacts/knn_cnext_unet96_avgmax/wandb/

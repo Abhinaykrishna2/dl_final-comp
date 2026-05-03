@@ -5,9 +5,9 @@ set -euo pipefail
 
 PYTHON_BIN="${PYTHON_BIN:-python}"
 RUN_ROOT="${RUN_ROOT:-artifacts/cnext_unet96}"
-EMB_ROOT="${EMB_ROOT:-artifacts/emb_cnext_unet96_avgmax}"
-LP_ROOT="${LP_ROOT:-artifacts/lp_cnext_unet96_avgmax}"
-KNN_ROOT="${KNN_ROOT:-artifacts/knn_cnext_unet96_avgmax}"
+EMB_ROOT="${EMB_ROOT:-artifacts/emb_cnext_unet96_avg}"
+LP_ROOT="${LP_ROOT:-artifacts/lp_cnext_unet96_avg}"
+KNN_ROOT="${KNN_ROOT:-artifacts/knn_cnext_unet96_avg}"
 WANDB_MODE="${WANDB_MODE:-disabled}"
 
 "$PYTHON_BIN" -m active_matter_ssl.train_cnext_forecaster \
@@ -33,7 +33,7 @@ WANDB_MODE="${WANDB_MODE:-disabled}"
     --checkpoint "$RUN_ROOT/encoder_best.pt" \
     --out-dir "$EMB_ROOT" \
     --batch-size "${EXPORT_BATCH_SIZE:-64}" \
-    --pool avgmax \
+    --pool avg \
     --clip-frames 16 \
     --window-stride 1 \
     --amp
