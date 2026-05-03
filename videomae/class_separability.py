@@ -23,6 +23,27 @@ import numpy as np
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parameters
+    ----------
+    (No input parameters; reads from ``sys.argv`` via ``argparse``.)
+
+    Output
+    ------
+    Output returned: An ``argparse.Namespace`` with attributes ``runs`` (list of "path:label" specs), ``out_dir``, ``feature_norm`` (one of ``none``, ``zscore``, ``l2``, ``zscore_l2``).
+
+    Purpose
+    -------
+    Define the CLI for ``python -m videomae.class_separability``. The ``--feature-norm`` knob is exposed because Fisher separability is sensitive to feature scaling and the right choice depends on whether the embeddings are already normalized.
+
+    Assumptions
+    -----------
+    Designed to be called once at the start of ``main``. Each ``--runs`` path must contain ``embeddings/{train,valid,test}.npz`` (produced by ``export_embeddings.py``) with both ``embeddings`` and ``labels`` arrays.
+
+    Notes
+    -----
+    Default normalization (``zscore``) is the right choice for comparing across encoders with different output scales (supervised, JEPA, VideoMAE).
+    """
     parser = argparse.ArgumentParser(description="Per-class separability of (alpha, zeta) combos.")
     parser.add_argument("--runs", nargs="+", required=True,
                         help="One or more 'path:label' pairs.")
@@ -80,6 +101,27 @@ def _classify_nearest_centroid(x: np.ndarray, centroids: np.ndarray) -> np.ndarr
 
 
 def main() -> None:
+    """
+    Parameters
+    ----------
+    (No input parameters; CLI args come from ``parse_args``.)
+
+    Output
+    ------
+    Output returned: ``None``. Side effect: writes ``class_separability.json`` (per-encoder Fisher score, intra/inter distances, NC-classification accuracy) and ``class_separability.pdf`` (two side-by-side bar charts) to the output directory.
+
+    Purpose
+    -------
+    For each encoder, compute the 45 unique (alpha, zeta) class centroids on train, the mean intra-class distance, the mean pairwise inter-centroid distance, the Fisher separability ratio (inter / intra), and the diagnostic nearest-centroid classification accuracy on valid + test. The Fisher score and NC accuracy together quantify how well-separated the discrete (alpha, zeta) levels are in each encoder's embedding space.
+
+    Assumptions
+    -----------
+    Designed for the active_matter label discretization (45 unique (alpha, zeta) combinations) but accepts any label structure: classes are derived dynamically by hashing each label vector. NC classification is reported for diagnostic purposes only; the actual assignment uses regression metrics (linear probe / kNN).
+
+    Notes
+    -----
+    Class keys are hashed strings of the label values to 4 decimal places, which handles minor floating-point noise in the label files. ``mean_inter`` uses upper-triangular indices to avoid double-counting symmetric distances and the diagonal.
+    """
     args = parse_args()
     runs = _parse_runs(args.runs)
     out_dir = args.out_dir.expanduser().resolve()

@@ -33,6 +33,27 @@ from .utils import (
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parameters
+    ----------
+    (No input parameters; reads from ``sys.argv`` via ``argparse``.)
+
+    Output
+    ------
+    Output returned: An ``argparse.Namespace`` with the parsed CLI options listed below.
+
+    Purpose
+    -------
+    Define the CLI for ``python -m videomae.pc_alignment``. Each ``--runs`` entry takes the form ``<path>:<label>`` so labels appear in plot legends and JSON keys.
+
+    Assumptions
+    -----------
+    Designed to be called once at the start of ``main``. The path component of each ``--runs`` entry must contain ``embeddings/{train,valid,test}.npz`` (produced by ``export_embeddings.py``).
+
+    Notes
+    -----
+    ``--ks`` defaults to a geometric sweep ``(1, 2, 4, 8, 16, 32, 256)`` so the saturation curve is visible on a log-x axis even when the embedding dim is 256.
+    """
     parser = argparse.ArgumentParser(description="Top-PC alignment analysis.")
     parser.add_argument("--runs", nargs="+", required=True,
                         help="One or more 'path:label' pointing at run directories with embeddings/{train,valid,test}.npz")
@@ -126,6 +147,27 @@ def _zscore(train_x: np.ndarray, valid_x: np.ndarray, test_x: np.ndarray) -> tup
 
 
 def main() -> None:
+    """
+    Parameters
+    ----------
+    (No input parameters; CLI args come from ``parse_args``.)
+
+    Output
+    ------
+    Output returned: ``None``. Side effect: writes ``pc_alignment.json`` (per-encoder per-K probe MSE + leading-PC correlations with alpha and zeta) and ``pc_alignment.pdf`` (test-MSE vs K, log x-axis) to the output directory.
+
+    Purpose
+    -------
+    For each encoder, fit a linear probe on just the top-K principal components of the embedding (K in ``--ks``) instead of the full 256-d. If the encoder's leading directions are aligned with (alpha, zeta), the K=2 probe should already give good MSE; if the encoder is rank-rich but target-misaligned, K=2 will be far worse than K=full. This is the strongest single quantitative test for the rank-vs-alignment claim in the report.
+
+    Assumptions
+    -----------
+    Designed for embeddings produced by ``export_embeddings.py`` with both train and val/test labels available. Encoders missing any of train/valid/test embeddings are silently skipped. The label normalizer is fit on each encoder's train labels independently (no cross-encoder leakage).
+
+    Notes
+    -----
+    Top-K projection is computed via SVD of the train-z-scored features once per encoder, then re-used for valid and test by re-applying the same projection. This is mathematically equivalent to fitting PCA on train and transforming the other splits, but avoids re-fitting per K.
+    """
     args = parse_args()
     seed_everything(args.seed)
     configure_torch_runtime(deterministic=False)

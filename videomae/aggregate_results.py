@@ -23,6 +23,37 @@ from typing import Any
 
 @dataclass
 class RunSummary:
+    """
+    Parameters
+    ----------
+    **Input parameter 1:** label - Human-readable name for this run (defaults to the run directory's basename).
+    **Input parameter 2:** run_dir - Filesystem path to the per-run output directory.
+    **Input parameter 3:** has_linear_probe - True if a non-empty ``linear_probe/metrics.json`` was found.
+    **Input parameter 4:** has_knn - True if a non-empty ``knn/metrics.json`` was found.
+    **Input parameter 5:** has_analysis - True if a non-empty ``analysis/analysis.json`` was found.
+    **Input parameter 6:** history - Parsed ``history.json`` (per-epoch records) or ``None`` if missing.
+    **Input parameter 7:** config - Parsed ``train_config.json`` or ``None`` if missing.
+    **Input parameter 8:** linear_probe_best - The "best" sub-dict of ``linear_probe/metrics.json`` if present.
+    **Input parameter 9:** knn_best - The "best" sub-dict of ``knn/metrics.json`` if present.
+    **Input parameter 10:** analysis - The ``splits`` sub-dict of ``analysis/analysis.json`` if present.
+
+    Output
+    ------
+    Output returned: A dataclass instance bundling everything aggregator code needs about a single training run.
+
+    Purpose
+    -------
+    Plain dataclass used as the in-memory representation of one run while ``main`` walks the artifacts directory. Keeps the aggregation logic clean by separating "what we found" from "what we'll write to the table".
+
+    Assumptions
+    -----------
+    All file paths follow the convention written by ``train_videomae.py`` / ``train_supervised.py`` and the eval scripts: ``history.json``, ``train_config.json``, ``linear_probe/metrics.json``, ``knn/metrics.json``, ``analysis/analysis.json`` directly under the run directory.
+
+    Notes
+    -----
+    All fields are optional except ``label`` and ``run_dir`` so we can represent partially-evaluated runs without raising.
+    """
+
     label: str
     run_dir: Path
     has_linear_probe: bool = False
@@ -36,6 +67,27 @@ class RunSummary:
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parameters
+    ----------
+    (No input parameters; reads from ``sys.argv`` via ``argparse``.)
+
+    Output
+    ------
+    Output returned: An ``argparse.Namespace`` with attributes ``artifacts_dir``, ``runs`` (optional list, default = auto-detect), ``out_dir`` (default = ``artifacts_dir/aggregated``), ``colleague_json`` (optional path to external numbers).
+
+    Purpose
+    -------
+    Define the CLI for ``python -m videomae.aggregate_results``. Lets the caller either (a) pin an explicit list of runs to aggregate, or (b) auto-detect every immediate subdirectory of ``artifacts_dir`` that contains an ``encoder_best.pt`` checkpoint.
+
+    Assumptions
+    -----------
+    Designed to be called once at the start of ``main``. ``--colleague-json`` is optional; when supplied it is merged into the final results table for direct comparison.
+
+    Notes
+    -----
+    Auto-detection picks any directory with an ``encoder_best.pt``, which is robust to intermediate runs that only finished training but not eval.
+    """
     parser = argparse.ArgumentParser(description="Aggregate eval results across runs.")
     parser.add_argument("--artifacts-dir", type=Path, default=Path("videomae/artifacts"))
     parser.add_argument(
@@ -179,6 +231,27 @@ def _format_md_table(rows: list[dict[str, Any]]) -> str:
 
 
 def main() -> None:
+    """
+    Parameters
+    ----------
+    (No input parameters; CLI args come from ``parse_args``.)
+
+    Output
+    ------
+    Output returned: ``None``. Side effect: writes ``aggregated_results.json`` (machine-readable per-run table) and ``aggregated_results.md`` (human-readable Markdown report-ready table) to the output directory and prints the table to stdout.
+
+    Purpose
+    -------
+    For every run in ``--artifacts-dir`` (either explicitly listed or auto-detected), gather the headline numbers (linear-probe + kNN test MSE, effective rank, Epps-Pulley distance, params) into one table row, optionally splice in the colleague's external JSON, and emit both JSON and Markdown.
+
+    Assumptions
+    -----------
+    Designed for the artifact layout produced by ``train_videomae.py`` / ``train_supervised.py`` plus the eval scripts. Missing sub-files are silently treated as ``None`` so partial-eval runs still appear in the table.
+
+    Notes
+    -----
+    The Markdown table uses GitHub-flavored alignment (``|---:|`` for right-aligned numerics) and a fixed column order so report tables remain stable across runs.
+    """
     args = parse_args()
     artifacts_dir = args.artifacts_dir.expanduser().resolve()
     out_dir = (args.out_dir or (artifacts_dir / "aggregated")).expanduser().resolve()

@@ -19,6 +19,27 @@ import numpy as np
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parameters
+    ----------
+    (No input parameters; reads from ``sys.argv`` via ``argparse``.)
+
+    Output
+    ------
+    Output returned: An ``argparse.Namespace`` with attributes ``runs`` (list of "path:label" specs), ``out_dir``, ``split``, ``max_samples``, ``seed``.
+
+    Purpose
+    -------
+    Define the CLI for ``python -m videomae.cka_compare``. Each ``--runs`` entry takes the form ``<path>:<label>`` so labels appear in the heatmap directly.
+
+    Assumptions
+    -----------
+    Designed to be called once at the start of ``main``. The path component of each ``--runs`` entry must contain ``embeddings/<split>.npz`` (produced by ``export_embeddings.py``).
+
+    Notes
+    -----
+    ``--max-samples`` is useful when the train split is too large to materialize a dense Gram matrix in memory; for our 224x224 dataset and ~10 encoders, the val split (5K samples, 5K x 5K Gram) fits comfortably.
+    """
     parser = argparse.ArgumentParser(description="Pairwise CKA between encoder embeddings.")
     parser.add_argument("--runs", nargs="+", required=True,
                         help="One or more 'path:label' pairs pointing at run output directories.")
@@ -59,7 +80,28 @@ def _center_gram(K: np.ndarray) -> np.ndarray:
 
 
 def linear_cka(x: np.ndarray, y: np.ndarray) -> float:
-    """Linear CKA between two embedding sets (same n_samples)."""
+    """
+    Parameters
+    ----------
+    **Input parameter 1:** x - First embedding matrix of shape ``(n_samples, d_x)``.
+    **Input parameter 2:** y - Second embedding matrix of shape ``(n_samples, d_y)``. ``d_x`` and ``d_y`` may differ.
+
+    Output
+    ------
+    Output returned: A float in ``[0, 1]`` (or ``NaN`` for degenerate inputs) measuring linear similarity between the two representations.
+
+    Purpose
+    -------
+    Compute the linear-kernel CKA between two embedding sets sharing the same n_samples. Implemented as ``HSIC(K_x, K_y) / sqrt(HSIC(K_x, K_x) * HSIC(K_y, K_y))`` with linear (uncentered) Gram matrices ``K_x = X X^T``, ``K_y = Y Y^T`` and centering matrix ``H``. Reference: Kornblith et al., ICML 2019, arXiv:1905.00414.
+
+    Assumptions
+    -----------
+    Designed for ``np.float64`` inputs (the caller in ``main`` casts to float64 before invoking). Both inputs must have the same number of samples in the same order; rows of ``x`` and ``y`` are assumed to correspond to the same data points.
+
+    Notes
+    -----
+    Returns ``NaN`` when one of the inputs is degenerate (zero variance after centering), which is preferable to dividing by zero. Linear CKA is bounded in ``[0, 1]`` and equals 1 if and only if ``y = a * x * R + b`` for some scalar ``a``, orthogonal ``R``, and constant ``b``.
+    """
     if x.shape[0] != y.shape[0]:
         raise ValueError("CKA requires the same number of samples")
     Kx = _gram_linear(x)
@@ -74,6 +116,27 @@ def linear_cka(x: np.ndarray, y: np.ndarray) -> float:
 
 
 def main() -> None:
+    """
+    Parameters
+    ----------
+    (No input parameters; CLI args come from ``parse_args``.)
+
+    Output
+    ------
+    Output returned: ``None``. Side effect: writes ``cka_<split>.json`` (full pairwise CKA matrix) and ``cka_<split>.pdf`` (a labeled heatmap with annotated cell values) to the output directory.
+
+    Purpose
+    -------
+    Load embeddings for every ``--runs`` entry, trim them to a common subset (same indices in the same order across encoders), compute every pairwise linear CKA, and render the result as a heatmap.
+
+    Assumptions
+    -----------
+    Designed for embeddings produced by ``export_embeddings.py``. Missing splits are silently skipped per encoder. The minimum-common-subset trim is required because CKA needs identical sample counts and orderings; we use a fixed RNG-seeded permutation so re-running with the same args produces an identical figure.
+
+    Notes
+    -----
+    The heatmap annotates each cell with its CKA value to two decimal places; viridis colormap with ``vmin=0, vmax=1`` for direct visual comparison across runs.
+    """
     args = parse_args()
     runs = _parse_runs(args.runs)
     out_dir = args.out_dir.expanduser().resolve()

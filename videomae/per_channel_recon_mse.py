@@ -43,6 +43,27 @@ CHANNEL_NAMES = [
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parameters
+    ----------
+    (No input parameters; reads from ``sys.argv`` via ``argparse``.)
+
+    Output
+    ------
+    Output returned: An ``argparse.Namespace`` with the parsed CLI options listed below.
+
+    Purpose
+    -------
+    Define the CLI for ``python -m videomae.per_channel_recon_mse``: data root, one or more VideoMAE checkpoints (with optional matching ``--labels``), output directory, split, mask realization count, batch size, num workers, seed, device, AMP dtype.
+
+    Assumptions
+    -----------
+    Designed to be called once at the start of ``main``. Each checkpoint must be a VideoMAE ``last.pt`` or ``best.pt`` that contains ``encoder``, ``decoder``, and ``mask_token`` keys; pure ``encoder_best.pt`` files cannot be reused here.
+
+    Notes
+    -----
+    ``--n-mask-realizations`` defaults to 4: this averages the per-channel MSE across 4 fresh tube masks per sample, reducing the noise floor enough to compare channels reliably.
+    """
     parser = argparse.ArgumentParser(description="Per-channel reconstruction MSE for VideoMAE.")
     parser.add_argument("--data-root", type=Path, required=True)
     parser.add_argument("--checkpoints", type=Path, nargs="+", required=True,
@@ -92,6 +113,27 @@ def _load_videomae(checkpoint_path: Path, device: torch.device) -> VideoMAEModel
 
 
 def main() -> None:
+    """
+    Parameters
+    ----------
+    (No input parameters; CLI args come from ``parse_args``.)
+
+    Output
+    ------
+    Output returned: ``None``. Side effect: writes ``per_channel_recon_mse.json`` (per-encoder per-channel masked MSE) and ``per_channel_recon_mse.pdf`` (overlay bar chart) to the output directory and prints per-channel MSE values to stdout.
+
+    Purpose
+    -------
+    For each VideoMAE checkpoint and each of the 11 physical channels, compute the masked-position reconstruction MSE on a held-out split, averaged over ``--n-mask-realizations`` random tube masks per sample. Complements the channel-importance ablation (``run_ablations.py``): that one says "which input channels are informative for downstream MSE", this one says "which output channels does VideoMAE actually try to reconstruct".
+
+    Assumptions
+    -----------
+    Designed for VideoMAE checkpoints saved by ``train_videomae.py``. Reads the val split by default; enforces 16-frame center clips at 224x224 (the training-time clip geometry). Multiple checkpoints can be evaluated in one call; their plots overlay on the same figure.
+
+    Notes
+    -----
+    The squared error is reduced over the batch and spatiotemporal axes but kept per-channel; the mask weight (number of masked pixels) is also tracked per-channel so the final MSE is correctly normalized. ``torch.cuda.empty_cache`` is called between encoders so peak memory stays bounded across many checkpoints.
+    """
     args = parse_args()
     seed_everything(args.seed)
     configure_torch_runtime(deterministic=False)

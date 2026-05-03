@@ -37,6 +37,27 @@ CHANNEL_NAMES = [
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parameters
+    ----------
+    (No input parameters; reads from ``sys.argv`` via ``argparse``.)
+
+    Output
+    ------
+    Output returned: An ``argparse.Namespace`` with parsed CLI options (data root, list of VideoMAE checkpoints, optional matching labels, output directory, ``n_samples``, ``time_step``, seed, device, AMP dtype).
+
+    Purpose
+    -------
+    Define the CLI for ``python -m videomae.visualize_reconstructions``. Centralized here so ``main`` stays focused on the visualization logic.
+
+    Assumptions
+    -----------
+    Each checkpoint must be a full ``last.pt`` / ``best.pt`` containing ``encoder``, ``decoder``, ``mask_token``. Pure encoder dumps cannot be visualized.
+
+    Notes
+    -----
+    ``--time-step`` selects which of the 16 frames to render (default 8 = middle). ``--n-samples`` controls how many validation clips per encoder are visualized.
+    """
     parser = argparse.ArgumentParser(description="Reconstruction visualizations for VideoMAE encoders.")
     parser.add_argument("--data-root", type=Path, required=True)
     parser.add_argument("--checkpoints", type=Path, nargs="+", required=True,
@@ -82,6 +103,27 @@ def _load_videomae(checkpoint_path: Path, device: torch.device) -> VideoMAEModel
 
 
 def main() -> None:
+    """
+    Parameters
+    ----------
+    (No input parameters; CLI args come from ``parse_args``.)
+
+    Output
+    ------
+    Output returned: ``None``. Side effect: writes one PDF per (encoder, sample) pair to the output directory, named ``recon_<label>_sample<idx>_t<t>.pdf``, plus a final summary line to stdout.
+
+    Purpose
+    -------
+    For each VideoMAE checkpoint and each of ``--n-samples`` random validation clips, render a 4-row x 11-column figure: row 0 = raw input, row 1 = masked input (with the learned mask token in masked tubes), row 2 = decoder reconstruction (per-tube z-scored space), row 3 = residual (recon - target on a diverging colormap). Each column is one of the 11 physical channels at the chosen time step.
+
+    Assumptions
+    -----------
+    Designed for the same val-split clip geometry that ``train_videomae.py`` used (16 frames, 224x224). The same RNG-seeded sample selection is shared across encoders so the figures are directly comparable. Fixed seed by default (42) for reproducibility.
+
+    Notes
+    -----
+    The masked input row substitutes the learned per-channel mask-token scalar in masked positions, which is what the encoder actually saw during training. The residual row uses a diverging colormap centered at zero so signed errors are interpretable. The 4 channel families (concentration, velocity, orientation, strain-rate) make the visual story easier to read.
+    """
     args = parse_args()
     seed_everything(args.seed)
     configure_torch_runtime(deterministic=False)

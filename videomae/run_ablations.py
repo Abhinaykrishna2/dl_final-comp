@@ -44,6 +44,27 @@ from .utils import (
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parameters
+    ----------
+    (No input parameters; reads from ``sys.argv`` via ``argparse``.)
+
+    Output
+    ------
+    Output returned: An ``argparse.Namespace`` with the parsed CLI options listed below.
+
+    Purpose
+    -------
+    Define the CLI for ``python -m videomae.run_ablations``: data root, list of frozen-encoder checkpoints, optional matching labels, output directory (default ``videomae/artifacts/ablations``), data-loader knobs, AMP/seed/device knobs, linear-probe hyperparameters, ablation toggles (``--skip-channel``, ``--skip-frame``), and frame budgets to sweep.
+
+    Assumptions
+    -----------
+    Designed to be called once at the start of ``main``. Each ``--encoder-checkpoints`` entry must be a frozen ``encoder_best.pt`` produced by ``train_videomae.py`` / ``train_supervised.py`` / colleague's JEPA trainers, containing a ``state_dict`` (or ``encoder``) key plus ``config``.
+
+    Notes
+    -----
+    Linear-probe hyperparameters are intentionally fixed (lr 1e-3, wd 1e-4, 200 epochs) rather than swept, so the ablations are directly comparable across encoders.
+    """
     parser = argparse.ArgumentParser(description="Run channel + frame ablations on frozen encoders.")
     parser.add_argument("--data-root", type=Path, required=True)
     parser.add_argument("--encoder-checkpoints", type=Path, nargs="+", required=True,
@@ -75,6 +96,32 @@ def parse_args() -> argparse.Namespace:
 
 @dataclass
 class EncoderBundle:
+    """
+    Parameters
+    ----------
+    **Input parameter 1:** label - Human-readable name for this encoder; appears in JSON output and stdout logs.
+    **Input parameter 2:** checkpoint - Filesystem path to the ``encoder_best.pt`` (or equivalent) checkpoint that was loaded.
+    **Input parameter 3:** encoder - The instantiated ``ConvEncoder`` with its weights already loaded onto ``device`` and ``.eval()`` set.
+    **Input parameter 4:** config - The training-config dict that was packaged with the checkpoint (used to re-derive ``in_chans``, ``num_frames``, etc.).
+    **Input parameter 5:** device - The device the encoder lives on (typically a single CUDA device for B200 evaluation).
+
+    Output
+    ------
+    Output returned: A dataclass instance bundling everything the channel and frame ablations need to evaluate one encoder.
+
+    Purpose
+    -------
+    Plain dataclass returned by ``_load_encoder``. Decoupling "load encoder" from "run ablation" keeps the helper functions free of unbundled positional args.
+
+    Assumptions
+    -----------
+    Designed for the checkpoint format saved by ``train_videomae.py`` and ``train_supervised.py``: a payload dict with either ``encoder`` or ``state_dict`` keying the actual weights, plus a ``config`` dict with at least ``dims``, ``num_res_blocks``, and ``in_chans`` (or ``context_frames`` / ``num_frames``).
+
+    Notes
+    -----
+    The ``encoder`` is already on ``device`` and in eval mode, so callers don't need to remember to move or eval-flag it.
+    """
+
     label: str
     checkpoint: Path
     encoder: ConvEncoder
@@ -343,6 +390,27 @@ def _frame_ablation(bundle: EncoderBundle, *, data_root: Path, args: argparse.Na
 
 
 def main() -> None:
+    """
+    Parameters
+    ----------
+    (No input parameters; CLI args come from ``parse_args``.)
+
+    Output
+    ------
+    Output returned: ``None``. Side effect: writes one ``<encoder_label>/`` subdirectory per encoder under ``--out-dir``, each containing ``encoder_config.json``, ``channel_ablation.json`` (unless ``--skip-channel``), and ``frame_ablation.json`` (unless ``--skip-frame``); also writes a top-level ``label_norm.json`` for reproducibility.
+
+    Purpose
+    -------
+    For every encoder in ``--encoder-checkpoints``: (1) load the frozen encoder, (2) run the channel-importance ablation (zero each of the 11 input channels in turn, fit a fresh linear probe, report test-MSE delta), (3) run the frame-budget ablation (replay the encoder on ``--frame-budgets`` last-frame-padded clips, fit a fresh probe each, plot the saturation curve), saving a JSON per ablation per encoder.
+
+    Assumptions
+    -----------
+    Designed for frozen-encoder checkpoints whose ``ConvEncoder`` config (``dims``, ``num_res_blocks``, ``stem_*``) is recoverable from the saved ``config`` dict. Existing ablation outputs in ``<out-dir>/<encoder_label>/`` are overwritten on re-run; pre-trained encoder artifacts in ``videomae/artifacts/<run>/`` are NEVER overwritten.
+
+    Notes
+    -----
+    The label normalizer is fit on the train labels of the dataset once and reused across all encoders so the linear probes target the same z-scored (alpha, zeta). ``torch.cuda.empty_cache`` is called between encoders so peak memory stays bounded across many checkpoints.
+    """
     args = parse_args()
     seed_everything(args.seed)
     configure_torch_runtime(deterministic=False)

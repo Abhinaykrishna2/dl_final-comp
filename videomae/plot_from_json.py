@@ -29,6 +29,27 @@ import numpy as np
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parameters
+    ----------
+    (No input parameters; reads from ``sys.argv`` via ``argparse``.)
+
+    Output
+    ------
+    Output returned: An ``argparse.Namespace`` with attributes ``runs`` (list of "path:label" specs), ``out_dir``, ``analysis_subdir``, ``linear_probe_dir``, ``knn_dir``.
+
+    Purpose
+    -------
+    Define the CLI for ``python -m videomae.plot_from_json`` so the report's figures.pdf can be regenerated entirely from local JSON logs (no W&B access required).
+
+    Assumptions
+    -----------
+    Each ``--runs`` path must point at a directory produced by ``train_videomae.py`` / ``train_supervised.py`` (with ``history.json``) and optionally containing ``analysis/analysis.json``, ``linear_probe/metrics.json``, and ``knn/metrics.json`` subdirectories.
+
+    Notes
+    -----
+    ``--analysis-subdir`` defaults to ``analysis``; the override exists in case the analysis was written elsewhere by an earlier run of ``analyze_representations.py``.
+    """
     parser = argparse.ArgumentParser(description="Regenerate report figures from JSON logs.")
     parser.add_argument(
         "--runs", nargs="+", required=True,
@@ -180,6 +201,27 @@ def _plot_mse_bars(ax, gathered: dict[str, dict]) -> None:
 
 
 def main() -> None:
+    """
+    Parameters
+    ----------
+    (No input parameters; CLI args come from ``parse_args``.)
+
+    Output
+    ------
+    Output returned: ``None``. Side effect: writes ``figures.pdf`` (a 2x2 panel figure: loss curves, per-dim std, isotropy bars, frozen-eval MSE bars) and ``figures_summary.json`` (which JSON sources were available per run) to the output directory.
+
+    Purpose
+    -------
+    Read every per-run JSON log (``history.json``, ``analysis/analysis.json``, ``linear_probe/metrics.json``, ``knn/metrics.json``) and assemble a one-page comparison figure for the report. Designed to be idempotent: re-running it always produces the same PDF for the same JSON inputs.
+
+    Assumptions
+    -----------
+    Requires ``matplotlib``. Missing JSON sources are tolerated: each panel falls back to a placeholder if it has no data, so partial runs still produce a usable figure.
+
+    Notes
+    -----
+    The 2x2 layout is chosen so the PDF can be embedded as a single figure in the report; the four panels were selected as the minimum set that conveys (a) optimization dynamics, (b) representation collapse, (c) isotropy, and (d) downstream regression accuracy.
+    """
     args = parse_args()
     runs = _parse_runs(args.runs)
     out_dir = args.out_dir.expanduser().resolve()

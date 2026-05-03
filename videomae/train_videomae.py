@@ -53,6 +53,33 @@ from .utils import (
 
 @dataclass(frozen=True)
 class DistState:
+    """
+    Parameters
+    ----------
+    **Input parameter 1:** enabled - True if running under distributed training (world_size > 1).
+    **Input parameter 2:** rank - Global rank of this process across all nodes (0 to world_size - 1).
+    **Input parameter 3:** world_size - Total number of processes participating in training.
+    **Input parameter 4:** local_rank - Rank of this process within its node (0 to local_world_size - 1).
+    **Input parameter 5:** device - Torch device this process should pin tensors to (CUDA index = local_rank, or CPU).
+    **Input parameter 6:** backend - The torch.distributed backend in use ("nccl" or "gloo"); ``None`` if distributed is disabled.
+
+    Output
+    ------
+    Output returned: A frozen dataclass instance representing the state of distributed training.
+
+    Purpose
+    -------
+    Immutable bundle of distributed-training metadata, populated once by ``_init_dist_state`` and consumed throughout ``main``. Frozen so it cannot accidentally be mutated mid-run.
+
+    Assumptions
+    -----------
+    Designed for both single-process (``enabled=False, world_size=1``) and multi-process (``torchrun``) execution. The single-process path does not call ``dist.init_process_group``, so ``backend`` stays ``None``.
+
+    Notes
+    -----
+    ``is_main_process`` is provided as a property for code clarity ("if the main process" reads better than "if rank == 0").
+    """
+
     enabled: bool
     rank: int
     world_size: int
@@ -62,17 +89,86 @@ class DistState:
 
     @property
     def is_main_process(self) -> bool:
+        """
+        Parameters
+        ----------
+        (No input parameters; reads ``self.rank``.)
+
+        Output
+        ------
+        Output returned: A bool. ``True`` only on the rank-0 process; ``False`` on all other ranks.
+
+        Purpose
+        -------
+        Convenience predicate guarding all "main-process-only" side effects (logging, checkpoint writing, W&B init).
+
+        Assumptions
+        -----------
+        Designed to be called after ``DistState`` has been populated by ``_init_dist_state``.
+
+        Notes
+        -----
+        Equivalent to ``self.rank == 0``; provided as a property only to make call sites read like English.
+        """
         return self.rank == 0
 
 
 @dataclass
 class WandbState:
+    """
+    Parameters
+    ----------
+    **Input parameter 1:** enabled - True if W&B logging is active for this process (only on rank 0 with ``--wandb-mode != disabled``).
+    **Input parameter 2:** run - The wandb ``Run`` instance returned by ``wandb.init`` (kept as ``Any`` so we don't import wandb at module import time).
+    **Input parameter 3:** run_id - The W&B run id, captured for resume support.
+
+    Output
+    ------
+    Output returned: A dataclass instance bundling W&B state for clean shutdown in the trainer's ``finally`` block.
+
+    Purpose
+    -------
+    Mutable bundle so the trainer can either log to W&B (offline by default) or skip W&B entirely without scattering ``if wandb is not None`` checks throughout ``main``.
+
+    Assumptions
+    -----------
+    Designed for ``--wandb-mode offline`` by default so no API key or network access is required. ``--wandb-mode online`` and ``--wandb-mode disabled`` are also supported.
+
+    Notes
+    -----
+    ``enabled=False`` is the default so any process that hasn't initialized W&B (including all non-rank-0 processes) is a no-op for the W&B-related code paths.
+    """
+
     enabled: bool = False
     run: Any | None = None
     run_id: str | None = None
 
 
 class StridedShardSampler(Sampler[int]):
+    """
+    Parameters
+    ----------
+    **Input parameter 1:** dataset_size - Number of items in the underlying dataset.
+    **Input parameter 2:** rank - Rank of this process; receives indices ``rank, rank + world_size, rank + 2 * world_size, ...``.
+    **Input parameter 3:** world_size - Total process count across which the dataset is sharded.
+
+    Output
+    ------
+    Output returned: An iterable ``Sampler`` that yields a strided shard of dataset indices, one shard per rank.
+
+    Purpose
+    -------
+    Lightweight DDP sampler for the validation loader. Unlike ``DistributedSampler``, this does not pad the last batch and does not shuffle, so the same validation example is always assigned to the same rank across epochs. That makes the rank-summed validation loss reproducible across runs.
+
+    Assumptions
+    -----------
+    Designed for read-only validation loaders where deterministic, non-padded sharding is preferred to perfect load-balancing. Train loaders should still use ``DistributedSampler`` because they need shuffling and even-batch behavior for AdamW.
+
+    Notes
+    -----
+    ``__len__`` returns the exact (potentially uneven) shard size so the DataLoader's progress bar is accurate per rank.
+    """
+
     def __init__(self, dataset_size: int, *, rank: int, world_size: int) -> None:
         self.dataset_size = int(dataset_size)
         self.rank = int(rank)
@@ -89,6 +185,27 @@ class StridedShardSampler(Sampler[int]):
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parameters
+    ----------
+    (No input parameters; reads from ``sys.argv`` via ``argparse``.)
+
+    Output
+    ------
+    Output returned: An ``argparse.Namespace`` with all CLI-configurable VideoMAE training options (dataset paths, optimizer / scheduler hyperparameters, encoder config, mask ratio, tube size, AMP / determinism flags, resume support, W&B knobs).
+
+    Purpose
+    -------
+    Define the full CLI for ``python -m videomae.train_videomae``. Defaults are tuned for our active_matter setup on B200: BF16 autocast, mask_ratio=0.6, tube_size=(16, 32, 32), encoder dims/blocks matching Person A's SIGReg-JEPA so the SSL-objective comparison is causally clean.
+
+    Assumptions
+    -----------
+    Designed to be called once at the start of ``main`` (before ``_init_dist_state``). Strict invariants (``mask_ratio`` in (0, 1), ``warmup_epochs >= 0``, ``warmup_start_factor`` in (0, 1]) are enforced in ``main`` after calling this function.
+
+    Notes
+    -----
+    ``--wandb-mode`` defaults to ``offline`` so the trainer runs without an API key by default; the ``wandb sync`` post-hoc workflow can upload runs later if desired.
+    """
     parser = argparse.ArgumentParser(description="Train a VideoMAE/SimMIM-hybrid encoder on active_matter from scratch.")
     parser.add_argument("--data-root", type=Path, required=True, help="Path containing train/valid/test or data/train/valid/test.")
     parser.add_argument("--out-dir", type=Path, default=Path("artifacts/videomae"), help="Directory for checkpoints and logs.")
@@ -308,6 +425,27 @@ def _load_init_checkpoint(model: VideoMAEModel, path: Path) -> dict[str, Any]:
 
 
 def main() -> None:
+    """
+    Parameters
+    ----------
+    (No input parameters; CLI args come from ``parse_args``.)
+
+    Output
+    ------
+    Output returned: ``None``. Side effect: trains a VideoMAE encoder, writes per-epoch checkpoints (``last.pt``, ``encoder_last.pt``, optionally ``epoch_NNNN.pt`` and ``best.pt`` / ``encoder_best.pt``) and JSON logs (``train_config.json``, ``history.json``) under ``--out-dir``, plus optional W&B-offline run files.
+
+    Purpose
+    -------
+    End-to-end VideoMAE / SimMIM-hybrid training loop. Builds the model from CLI args, sets up DDP if launched via torchrun, fits ``AdamW`` with cosine LR and linear warmup, runs train + valid passes per epoch under BF16 autocast, and saves checkpoints idempotently. Supports both clean starts and resume-from-``last.pt`` so SSH drops never lose progress.
+
+    Assumptions
+    -----------
+    Designed for B200 / A100 GPUs with BF16 autocast; FP16 with grad-scaling is supported via ``--amp-dtype float16`` (rarely needed). Single-process training is the default; multi-GPU DDP activates automatically when launched under ``torchrun`` (detects ``RANK`` / ``WORLD_SIZE`` / ``LOCAL_RANK`` env vars or SLURM equivalents). Hard-asserts encoder/decoder total parameters stay under the assignment's 100M cap.
+
+    Notes
+    -----
+    Encoder weights are saved separately as ``encoder_last.pt`` / ``encoder_best.pt`` in the format ``physrl/export_embeddings.py`` consumes (``state_dict`` + ``config``), so the colleague's eval pipeline works on our checkpoints unchanged. Validation is performed on every epoch; "best" is determined by validation loss. If ``--resume auto`` finds a complete previous run (start_epoch > epochs), the trainer prints a status line and exits cleanly without re-training.
+    """
     dist_state: DistState | None = None
     wandb_state = WandbState(enabled=False)
     try:

@@ -360,15 +360,28 @@ class SigRegJepaModel(nn.Module):
 
 
 class ConvNeXtDecoder(nn.Module):
-    """Lightweight 5-stage transposed-conv decoder mirroring the encoder downsampling.
+    """
+    Parameters
+    ----------
+    **Input parameter 1:** in_chans - Number of physical-field channels reconstructed at the output (11 for active_matter: concentration + 2 velocity + 4 orientation + 4 strain-rate).
+    **Input parameter 2:** embed_dim - Channel dimension at the encoder bottleneck. Must match ``ConvEncoder.embed_dim`` (256 for our default config).
+    **Input parameter 3:** num_frames - Temporal length of the reconstructed clip (must be 16 for the default 5-stage upsampling chain).
 
-    Maps the encoder bottleneck ``(B, embed_dim, 7, 7)`` back to the input space
-    ``(B, in_chans, num_frames, 224, 224)``.
+    Output
+    ------
+    Output returned: An ``nn.Module`` that maps the encoder bottleneck ``(B, embed_dim, 7, 7)`` (or ``(B, embed_dim, 1, 7, 7)``) back to the input pixel space ``(B, in_chans, num_frames, 224, 224)``.
 
-    Per SimMIM Tab. 2 (Xie et al. 2022, arXiv:2111.09886), a lightweight prediction
-    head transfers as well or better than a heavy decoder while being much cheaper
-    to train. We size this to ~0.9M parameters (vs ~46M for a single 1x1 conv head),
-    keeping the total VideoMAE model well under the 100M cap.
+    Purpose
+    -------
+    Lightweight 5-stage transposed-conv decoder mirroring the encoder's downsampling chain. Stage progression: ``(256, 1, 7, 7) -> (128, 2, 14, 14) -> (64, 4, 28, 28) -> (32, 8, 56, 56) -> (16, 16, 112, 112) -> (11, 16, 224, 224)``. Per SimMIM Tab. 2 (Xie et al. 2022, arXiv:2111.09886), a lightweight prediction head transfers as well or better than a heavy decoder while being much cheaper to train. Sized to ~0.9M parameters (vs ~46M for a single 1x1 conv head), keeping the total VideoMAE model well under the 100M cap.
+
+    Assumptions
+    -----------
+    Designed and tested for the active_matter resolution chain (224x224 spatial, 16 frames temporal) with a 5-stage encoder downsampling factor of (16x temporal, 32x spatial). Hard-coded for ``num_frames=16`` and ``embed_dim=256``: changing those constants requires re-tuning the upsampling stages.
+
+    Notes
+    -----
+    The 4 intermediate stages each use an LayerNorm (channels-first) + GELU; only the final ``up5`` stage produces raw values (no nonlinearity) so the output range is unconstrained, matching the per-tube z-scored target distribution used in ``VideoMAEModel.forward``.
     """
 
     def __init__(
@@ -383,6 +396,7 @@ class ConvNeXtDecoder(nn.Module):
         self.embed_dim = int(embed_dim)
         self.num_frames = int(num_frames)
 
+        # Helper to build one transposed-conv upsampling stage with norm + activation.
         def upblock(in_c: int, out_c: int, time_stride: int = 2) -> nn.Sequential:
             return nn.Sequential(
                 nn.ConvTranspose3d(
@@ -408,6 +422,27 @@ class ConvNeXtDecoder(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Parameters
+        ----------
+        **Input parameter 1:** x - Encoder bottleneck features, either ``(B, embed_dim, 7, 7)`` (4-D, time already squeezed) or ``(B, embed_dim, 1, 7, 7)`` (5-D).
+
+        Output
+        ------
+        Output returned: A reconstructed pixel tensor of shape ``(B, in_chans, num_frames, 224, 224)``.
+
+        Purpose
+        -------
+        Run the 5 transposed-conv stages in sequence to upsample the encoder bottleneck back to input resolution. The 4-D-input branch restores a length-1 time dim before upsampling so this decoder works whether or not the upstream encoder squeezed the temporal axis at its last stage.
+
+        Assumptions
+        -----------
+        Tested with the default ``ConvEncoder`` from ``physrl/models.py`` whose last stage downsamples time to 1 and spatial to 7x7. ``x`` must be on the same device as the decoder weights.
+
+        Notes
+        -----
+        No skip connections from the encoder: this is a pure decoder (SimMIM-style), not a U-Net. The reconstruction is therefore decoded entirely from the bottleneck features and the choice of mask token, which is the desired behavior for a representation-learning probe.
+        """
         if x.ndim == 4:
             # Encoder squeezed the time dim at the last stage; restore it as length-1
             x = x.unsqueeze(2)
@@ -420,23 +455,37 @@ class ConvNeXtDecoder(nn.Module):
 
 
 class VideoMAEModel(nn.Module):
-    """SimMIM/VideoMAE-hybrid masked autoencoder for active matter.
+    """
+    Parameters
+    ----------
+    **Input parameter 1:** in_chans - Number of input/output channels (11 for active_matter).
+    **Input parameter 2:** dims - Per-stage channel widths for the ``ConvEncoder``. Defaults to ``(32, 64, 128, 256, 256)``.
+    **Input parameter 3:** num_res_blocks - Per-stage block counts for the ``ConvEncoder``. Defaults to ``(2, 2, 4, 8, 2)``.
+    **Input parameter 4:** num_frames - Temporal length of each input clip. Defaults to 16.
+    **Input parameter 5:** stem_patch_size - Stride used at the encoder stem (and decoder de-stem). Defaults to 2.
+    **Input parameter 6:** stem_kernel_size - Kernel size used at the encoder stem. Defaults to 4.
+    **Input parameter 7:** drop_path_rate - Stochastic-depth max rate inside the encoder. Defaults to 0.05.
+    **Input parameter 8:** layer_scale_init_value - LayerScale gamma init in each ConvNeXt block. Defaults to 1e-6.
+    **Input parameter 9:** mask_ratio - Fraction of tubes masked per sample at every forward pass. Must be in ``(0, 1)``. Defaults to 0.6 (SimMIM Tab. 1 optimal).
+    **Input parameter 10:** tube_size - 3-tuple ``(tT, tH, tW)`` describing the temporal/spatial extent of a single tube. Must divide ``(num_frames, H, W)`` evenly. Defaults to ``(16, 32, 32)`` (encoder downsampling factor).
+    **Input parameter 11:** norm_pix_loss - If ``True`` apply per-tube z-scoring to the target before computing MSE (VideoMAE Tab. 1c). Defaults to ``True``.
+    **Input parameter 12:** norm_eps - Numerical floor under the per-tube std before division. Defaults to 1e-6.
 
-    Differences from canonical VideoMAE (Tong et al. 2022) for ConvNeXt compatibility:
+    Output
+    ------
+    Output returned: An ``nn.Module`` whose ``forward(x)`` performs masking, encoding, decoding, and computes the masked-position MSE loss in a single call.
 
-    * Uses learnable mask tokens (SimMIM convention) replacing masked tube positions
-      in the input tensor. Necessary because depthwise 3D ConvNeXts cannot use
-      VideoMAE's asymmetric encoder-decoder (which drops masked tokens before the
-      ViT encoder).
-    * Tube size is ``(num_frames, 32, 32)`` aligned with the encoder's downsampling
-      factor (32x spatial, 16x temporal). Per SimMIM Sec 4.1.2, the optimal mask
-      patch size matches the encoder's downsampling stride.
+    Purpose
+    -------
+    SimMIM/VideoMAE-hybrid masked autoencoder for active matter. The encoder is a byte-identical copy of Person A's ``ConvEncoder`` so the SSL-objective comparison (pixel reconstruction vs. latent prediction) is causally clean. Differences from canonical VideoMAE (Tong et al. 2022, arXiv:2203.12602) for ConvNeXt compatibility: (a) learnable mask tokens (SimMIM convention) replace masked tube positions in the input tensor because depthwise 3D ConvNeXts cannot use VideoMAE's asymmetric encoder-decoder (dropping tokens before a ViT encoder); (b) tube size aligned with the encoder's downsampling factor, per SimMIM Sec 4.1.2. Inherits from VideoMAE: tube masking with the same spatial mask across all frames in a tube, per-tube pixel z-scoring of the reconstruction target (Tab. 1c), MSE loss on masked positions only.
 
-    Inherits from VideoMAE:
+    Assumptions
+    -----------
+    Designed and tested for ``(B, 11, 16, 224, 224)`` active_matter clips on a single CUDA device with BF16 autocast. The class hard-asserts the input shape and that ``tube_size`` divides ``(num_frames, H, W)`` exactly, so feeding mismatched shapes raises ``ValueError`` early.
 
-    * Tube masking with the same spatial mask across all frames in a tube.
-    * Per-tube pixel z-scoring of the reconstruction target (Tab. 1c).
-    * MSE loss on masked positions only.
+    Notes
+    -----
+    Checkpoints saved by ``train_videomae.py`` contain three keyed state dicts (``encoder``, ``decoder``, ``mask_token``) plus the ``config`` payload that ``physrl/export_embeddings.py`` consumes for downstream linear-probe / kNN evaluation. The encoder alone (without the decoder/mask_token) is also saved as ``encoder_best.pt`` for direct use by the colleague's eval pipeline.
     """
 
     DEFAULT_DIMS = (32, 64, 128, 256, 256)
@@ -505,11 +554,26 @@ class VideoMAEModel(nn.Module):
         return B, C, T, H, W, nT, nH, nW
 
     def random_tube_mask(self, x: torch.Tensor) -> torch.Tensor:
-        """Generate a per-sample random tube-level mask.
+        """
+        Parameters
+        ----------
+        **Input parameter 1:** x - Input clip tensor of shape ``(B, C, T, H, W)``. Used only for shape and device inference; values are not consumed.
 
-        Returns a bool tensor of shape ``(B, 1, nT, nH, nW)`` where True marks
-        masked tubes. Exactly ``round(mask_ratio * n_tubes)`` tubes are masked
-        per sample.
+        Output
+        ------
+        Output returned: A bool mask of shape ``(B, 1, nT, nH, nW)`` where ``nT, nH, nW = T // tT, H // tH, W // tW`` and ``True`` marks masked tubes.
+
+        Purpose
+        -------
+        Draw exactly ``round(mask_ratio * n_tubes)`` tubes per sample uniformly at random. Implemented via per-sample argsort of uniform-random scores so the count is deterministic per sample.
+
+        Assumptions
+        -----------
+        ``x`` must satisfy the shape and divisibility constraints checked by ``_check_input``. Mask ratio is read from ``self.mask_ratio``; total number of masked tubes is at least 1 even at very low ratios.
+
+        Notes
+        -----
+        Random state comes from the current ``torch`` RNG on ``x.device``: callers wanting reproducible masks should seed via ``torch.manual_seed`` (and ``torch.cuda.manual_seed_all`` on CUDA) before invoking. The companion script ``per_channel_recon_mse.py`` exploits this to evaluate multiple mask realizations per sample.
         """
         B, _, _, _, _, nT, nH, nW = self._check_input(x)
         n_tokens = nT * nH * nW
@@ -521,8 +585,27 @@ class VideoMAEModel(nn.Module):
         return mask.view(B, 1, nT, nH, nW)
 
     def expand_tube_mask(self, tube_mask: torch.Tensor) -> torch.Tensor:
-        """Expand a tube-level mask ``(B, 1, nT, nH, nW)`` to a pixel-level mask
-        ``(B, 1, T, H, W)``."""
+        """
+        Parameters
+        ----------
+        **Input parameter 1:** tube_mask - A tube-level bool mask of shape ``(B, 1, nT, nH, nW)`` produced by ``random_tube_mask``.
+
+        Output
+        ------
+        Output returned: A pixel-level bool mask of shape ``(B, 1, T, H, W)`` with the same dtype as ``tube_mask``, where every pixel inside a masked tube is ``True``.
+
+        Purpose
+        -------
+        Tile each tube cell to the pixels it covers via three ``repeat_interleave`` calls, one per axis (T, H, W).
+
+        Assumptions
+        -----------
+        Designed for the canonical VideoMAE tube convention (constant per-tube mask), so a single bool per tube broadcasts identically across all pixels inside that tube. Requires ``tube_mask.shape[2:]`` to satisfy ``T = nT * tT``, ``H = nH * tH``, ``W = nW * tW``.
+
+        Notes
+        -----
+        ``repeat_interleave`` materializes a fully expanded tensor (no broadcasting trick) so memory grows by ``tT * tH * tW``. For 224x224 inputs with tube size ``(16, 32, 32)`` that is a 32x32 = 1024x expansion of the tube mask -- still small enough to be free at our batch sizes.
+        """
         tT, tH, tW = self.tube_size
         return (
             tube_mask.repeat_interleave(tT, dim=2)
@@ -531,10 +614,27 @@ class VideoMAEModel(nn.Module):
         )
 
     def per_tube_zscore(self, x: torch.Tensor) -> torch.Tensor:
-        """Z-score each ``(channel, tube)`` cell independently using the tube-internal
-        mean and std. This is the VideoMAE per-cube normalization, generalized to
-        11-channel physical fields (each channel has its own physical scale, so we
-        z-score per channel rather than mixing them)."""
+        """
+        Parameters
+        ----------
+        **Input parameter 1:** x - Input clip tensor of shape ``(B, C, T, H, W)``.
+
+        Output
+        ------
+        Output returned: A tensor of shape ``(B, C, T, H, W)`` where every ``(channel, tube)`` cell has been independently centered to mean 0 and scaled to std 1 using its tube-internal statistics.
+
+        Purpose
+        -------
+        VideoMAE-style per-cube target normalization (Tong et al. 2022 Sec 3.3, Tab. 1c) generalized to 11-channel physical fields. Each channel has its own physical scale (concentration vs. velocity vs. strain), so z-scoring is computed per channel rather than mixing channels into one statistic.
+
+        Assumptions
+        -----------
+        ``x`` must satisfy the shape and divisibility constraints checked by ``_check_input``. Variance is computed with the biased ``unbiased=False`` estimator to avoid n-1 division in tubes with one element.
+
+        Notes
+        -----
+        The ``norm_eps`` floor (``self.norm_eps``, default 1e-6) is added under the square root before division to keep the operation finite if a tube happens to be constant. This rarely fires for 11-channel physical fields but matters during the very first training steps when the encoder is poorly initialized.
+        """
         B, C, T, H, W, nT, nH, nW = self._check_input(x)
         tT, tH, tW = self.tube_size
         # (B, C, nT, tT, nH, tH, nW, tW)
@@ -545,10 +645,51 @@ class VideoMAEModel(nn.Module):
         return norm.view(B, C, T, H, W)
 
     def encode(self, x: torch.Tensor) -> torch.Tensor:
-        """For embedding extraction by ``export_embeddings.py``: no masking."""
+        """
+        Parameters
+        ----------
+        **Input parameter 1:** x - Input clip tensor of shape ``(B, C, T, H, W)``.
+
+        Output
+        ------
+        Output returned: Encoder bottleneck features of shape ``(B, embed_dim, 7, 7)`` (or ``(B, embed_dim, 1, 7, 7)`` depending on encoder config).
+
+        Purpose
+        -------
+        Forward pass of the encoder alone, with no masking. This is the entry point used by ``export_embeddings.py`` and any downstream evaluation that wants a deterministic embedding.
+
+        Assumptions
+        -----------
+        Caller is responsible for setting ``model.eval()`` and disabling autograd (``torch.no_grad`` / ``torch.inference_mode``) when extracting embeddings for evaluation.
+
+        Notes
+        -----
+        Identical to ``self.encoder(x)``; provided as a public method so downstream code can target ``VideoMAEModel`` without having to reach inside its sub-modules.
+        """
         return self.encoder(x)
 
     def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
+        """
+        Parameters
+        ----------
+        **Input parameter 1:** x - Input clip tensor of shape ``(B, C, T, H, W)`` on the same device as the model.
+
+        Output
+        ------
+        Output returned: A dict with keys ``loss`` (scalar masked-MSE), ``latent`` (encoder features), ``tube_mask`` (bool, ``(B, 1, nT, nH, nW)``), ``pixel_mask`` (bool, ``(B, 1, T, H, W)``), ``recon`` (decoder output), ``target`` (the per-tube z-scored target), and ``n_masked_tubes`` (mean masked tubes per sample, useful for sanity checks).
+
+        Purpose
+        -------
+        Run the masked-autoencoder cycle in a single call: (1) draw a random tube mask, (2) replace masked pixel positions with the learnable per-channel mask token, (3) encode the masked input, (4) decode the bottleneck, (5) compute the per-tube z-scored target if ``norm_pix_loss``, (6) return the MSE averaged across channels and over masked positions only (SimMIM Tab. 4: prediction-only beats full reconstruction).
+
+        Assumptions
+        -----------
+        Designed for use inside an ``optimizer.zero_grad / loss.backward / optimizer.step`` training loop with BF16 autocast on B200. The mask is fresh on every call, so two consecutive forwards on the same input produce different masks (and different losses).
+
+        Notes
+        -----
+        The ``loss`` key is the only quantity required for backpropagation; the other keys are returned for diagnostics, visualization (``visualize_reconstructions.py``), and per-channel reconstruction-MSE analysis (``per_channel_recon_mse.py``). The squared error is averaged across the channel dimension so the per-pixel weight is the same regardless of how many channels are present.
+        """
         tube_mask = self.random_tube_mask(x)
         pixel_mask = self.expand_tube_mask(tube_mask)
         # Replace masked positions with the learnable per-channel mask token

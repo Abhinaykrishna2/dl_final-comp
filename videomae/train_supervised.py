@@ -53,6 +53,33 @@ from .utils import (
 # Reuse the dist-state helper conventions from train_videomae.py
 @dataclass(frozen=True)
 class DistState:
+    """
+    Parameters
+    ----------
+    **Input parameter 1:** enabled - True if running under distributed training (world_size > 1).
+    **Input parameter 2:** rank - Global rank of this process across all nodes (0 to world_size - 1).
+    **Input parameter 3:** world_size - Total number of processes participating in training.
+    **Input parameter 4:** local_rank - Rank of this process within its node (0 to local_world_size - 1).
+    **Input parameter 5:** device - Torch device this process should pin tensors to (CUDA index = local_rank, or CPU).
+    **Input parameter 6:** backend - The torch.distributed backend in use ("nccl" or "gloo"); ``None`` if distributed is disabled.
+
+    Output
+    ------
+    Output returned: A frozen dataclass instance representing the state of distributed training.
+
+    Purpose
+    -------
+    Immutable bundle of distributed-training metadata, populated once by ``_init_dist_state`` and consumed throughout ``main``. Frozen so it cannot accidentally be mutated mid-run.
+
+    Assumptions
+    -----------
+    Designed for both single-process (``enabled=False, world_size=1``) and multi-process (``torchrun``) execution. Mirrors the ``DistState`` in ``train_videomae.py`` so the two trainers are interface-compatible.
+
+    Notes
+    -----
+    Kept as a separate class (not imported from ``train_videomae``) so the supervised trainer is self-contained and can be replayed even if ``train_videomae`` is unavailable.
+    """
+
     enabled: bool
     rank: int
     world_size: int
@@ -62,17 +89,86 @@ class DistState:
 
     @property
     def is_main_process(self) -> bool:
+        """
+        Parameters
+        ----------
+        (No input parameters; reads ``self.rank``.)
+
+        Output
+        ------
+        Output returned: A bool. ``True`` only on the rank-0 process; ``False`` on all other ranks.
+
+        Purpose
+        -------
+        Convenience predicate guarding all "main-process-only" side effects (logging, checkpoint writing, W&B init).
+
+        Assumptions
+        -----------
+        Designed to be called after ``DistState`` has been populated by ``_init_dist_state``.
+
+        Notes
+        -----
+        Equivalent to ``self.rank == 0``; provided as a property only to make call sites read like English.
+        """
         return self.rank == 0
 
 
 @dataclass
 class WandbState:
+    """
+    Parameters
+    ----------
+    **Input parameter 1:** enabled - True if W&B logging is active for this process (only on rank 0 with ``--wandb-mode != disabled``).
+    **Input parameter 2:** run - The wandb ``Run`` instance returned by ``wandb.init`` (kept as ``Any`` so we don't import wandb at module import time).
+    **Input parameter 3:** run_id - The W&B run id, captured for resume support.
+
+    Output
+    ------
+    Output returned: A dataclass instance bundling W&B state for clean shutdown in the trainer's ``finally`` block.
+
+    Purpose
+    -------
+    Mutable bundle so the trainer can either log to W&B (offline by default) or skip W&B entirely without scattering ``if wandb is not None`` checks throughout ``main``.
+
+    Assumptions
+    -----------
+    Designed for ``--wandb-mode offline`` by default so no API key or network access is required.
+
+    Notes
+    -----
+    Mirrors the structure used in ``train_videomae.py``. ``enabled=False`` is the default so any process that hasn't initialized W&B (including all non-rank-0 processes) is a no-op for the W&B-related code paths.
+    """
+
     enabled: bool = False
     run: Any | None = None
     run_id: str | None = None
 
 
 class StridedShardSampler(Sampler[int]):
+    """
+    Parameters
+    ----------
+    **Input parameter 1:** dataset_size - Number of items in the underlying dataset.
+    **Input parameter 2:** rank - Rank of this process; receives indices ``rank, rank + world_size, rank + 2 * world_size, ...``.
+    **Input parameter 3:** world_size - Total process count across which the dataset is sharded.
+
+    Output
+    ------
+    Output returned: An iterable ``Sampler`` that yields a strided shard of dataset indices, one shard per rank.
+
+    Purpose
+    -------
+    Lightweight DDP sampler for the validation loader. Unlike ``DistributedSampler``, this does not pad the last batch and does not shuffle, so the same validation example is always assigned to the same rank across epochs.
+
+    Assumptions
+    -----------
+    Designed for read-only validation loaders where deterministic, non-padded sharding is preferred to perfect load-balancing.
+
+    Notes
+    -----
+    Identical to the sampler used in ``train_videomae.py`` so the two trainers shard the validation set the same way.
+    """
+
     def __init__(self, dataset_size: int, *, rank: int, world_size: int) -> None:
         self.dataset_size = int(dataset_size)
         self.rank = int(rank)
@@ -89,7 +185,29 @@ class StridedShardSampler(Sampler[int]):
 
 
 class SupervisedModel(nn.Module):
-    """ConvEncoder + average-pool + nn.Linear(embed_dim, 2). End-to-end MSE on (alpha, zeta)."""
+    """
+    Parameters
+    ----------
+    **Input parameter 1:** encoder - The ``ConvEncoder`` instance to be trained end-to-end. Same architecture as the JEPA / VideoMAE encoders so the comparison is causally clean.
+    **Input parameter 2:** num_outputs - Output dimension of the linear head. Defaults to 2 for the (alpha, zeta) regression target.
+    **Input parameter 3:** pool - Spatiotemporal pooling mode applied to encoder features before the linear head. One of ``avg``, ``flatten``, ``avgmax``. Defaults to ``avg``.
+
+    Output
+    ------
+    Output returned: An ``nn.Module`` whose ``forward(x)`` returns a ``(B, num_outputs)`` regression prediction.
+
+    Purpose
+    -------
+    End-to-end supervised baseline: ``ConvEncoder`` + spatiotemporal pool + ``nn.Linear(embed_dim, num_outputs)``. Trains directly on the regression target with MSE loss to provide an upper-bound anchor for the report (assignment FAQ: "training a supervised baseline provides insights into the value of [the SSL] approach").
+
+    Assumptions
+    -----------
+    Designed for the ``ConvEncoder`` from ``physrl/models.py``; ``encoder.embed_dim`` is the input dim of the linear head.
+
+    Notes
+    -----
+    A low end-to-end MSE combined with a high frozen-probe MSE on the same encoder is a particularly interesting result: it would indicate the supervised gradient collapsed the representation to a 2-D target-aligned subspace that is no longer linearly separable for downstream tasks. This is exactly what the report's PC-alignment analysis confirms.
+    """
 
     def __init__(self, encoder: ConvEncoder, num_outputs: int = 2, pool: str = "avg") -> None:
         super().__init__()
@@ -98,12 +216,54 @@ class SupervisedModel(nn.Module):
         self.pool = pool
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Parameters
+        ----------
+        **Input parameter 1:** x - Input clip tensor of shape ``(B, C, T, H, W)``.
+
+        Output
+        ------
+        Output returned: A regression prediction of shape ``(B, num_outputs)``.
+
+        Purpose
+        -------
+        Run the encoder on the input clip, pool the resulting feature map to a per-sample vector, and pass it through the linear head.
+
+        Assumptions
+        -----------
+        ``x`` is on the same device as the model. Caller controls ``self.train()`` / ``self.eval()`` mode.
+
+        Notes
+        -----
+        ``pool_features`` from ``videomae.utils`` handles all three pooling modes; using ``avg`` (the default) reproduces the colleague's ``avg`` pooling convention used by ``export_embeddings.py``.
+        """
         feat = self.encoder(x)
         pooled = pool_features(feat, self.pool)
         return self.head(pooled)
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parameters
+    ----------
+    (No input parameters; reads from ``sys.argv`` via ``argparse``.)
+
+    Output
+    ------
+    Output returned: An ``argparse.Namespace`` with all CLI-configurable supervised-training options (dataset paths, optimizer / scheduler hyperparameters, encoder config, pooling mode, AMP / determinism flags, resume support, W&B knobs).
+
+    Purpose
+    -------
+    Define the full CLI for ``python -m videomae.train_supervised``. Defaults are tuned for the active_matter regression task: ``--epochs 15``, ``--lr 3e-4``, ``--num-frames 16``, ``--train-index-mode single_clip`` (one clip per simulation per epoch, since the task is a per-simulation regression).
+
+    Assumptions
+    -----------
+    Designed to be called once at the start of ``main``. Encoder defaults match the SIGReg-JEPA / VideoMAE config so the supervised baseline trains the same architecture under a different objective.
+
+    Notes
+    -----
+    ``--train-index-mode`` defaults to ``single_clip`` because a labelled regression target should not be repeated within an epoch (sliding-window mode would expose the same simulation many times per epoch and inflate the effective epoch count).
+    """
     parser = argparse.ArgumentParser(description="End-to-end supervised baseline on active_matter.")
     parser.add_argument("--data-root", type=Path, required=True)
     parser.add_argument("--out-dir", type=Path, default=Path("artifacts/supervised"))
@@ -217,6 +377,27 @@ def _all_reduce_mean(sum_value: float, count: int, *, device: torch.device, dist
 
 
 def main() -> None:
+    """
+    Parameters
+    ----------
+    (No input parameters; CLI args come from ``parse_args``.)
+
+    Output
+    ------
+    Output returned: ``None``. Side effect: trains a supervised regression model end-to-end, writes per-epoch checkpoints (``last.pt``, ``encoder_last.pt``, optionally ``epoch_NNNN.pt`` and ``best.pt`` / ``encoder_best.pt``) and JSON logs (``train_config.json``, ``history.json``) under ``--out-dir``, plus optional W&B-offline run files.
+
+    Purpose
+    -------
+    End-to-end supervised regression training loop. Builds ``SupervisedModel`` (``ConvEncoder`` + linear head) from CLI args, sets up DDP if launched via torchrun, fits ``AdamW`` with cosine LR and linear warmup against z-scored MSE on (alpha, zeta), runs train + valid passes per epoch under BF16 autocast, and saves checkpoints idempotently.
+
+    Assumptions
+    -----------
+    Designed for B200 / A100 GPUs with BF16 autocast. Single-process training is the default; multi-GPU DDP activates automatically when launched under ``torchrun``. Hard-asserts encoder + head total parameters stay under the assignment's 100M cap.
+
+    Notes
+    -----
+    The label normalizer is fit on TRAIN labels only (no val/test leakage) and bundled into the checkpoint as ``label_stats`` so downstream evaluators reproduce the exact (alpha, zeta) statistics. "Best" is determined by validation z-scored mean MSE (``valid_mean_mse_normalized``); raw MSE is also logged for human-readability.
+    """
     dist_state: DistState | None = None
     wandb_state = WandbState(enabled=False)
     try:

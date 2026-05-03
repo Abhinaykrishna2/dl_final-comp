@@ -10,6 +10,27 @@ import numpy as np
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parameters
+    ----------
+    (No input parameters; reads from ``sys.argv`` via ``argparse``.)
+
+    Output
+    ------
+    Output returned: An ``argparse.Namespace`` with attributes ``ablations_dir`` (input directory) and ``out_dir`` (output directory; default = ``ablations_dir``).
+
+    Purpose
+    -------
+    Define and parse the CLI for ``python -m videomae.plot_ablations``. Centralized here so ``main`` stays focused on plotting logic.
+
+    Assumptions
+    -----------
+    Designed to be called once at the start of ``main``. ``--ablations-dir`` must point at a directory whose immediate children are per-encoder subdirectories produced by ``run_ablations.py``.
+
+    Notes
+    -----
+    No defaults are baked in for ``--ablations-dir`` because that path is run-specific; ``--out-dir`` defaults to the input directory so the plots land alongside their JSON sources.
+    """
     parser = argparse.ArgumentParser(description="Plot ablation results.")
     parser.add_argument("--ablations-dir", type=Path, required=True,
                         help="Directory containing per-encoder subdirectories with channel_ablation.json and frame_ablation.json.")
@@ -19,6 +40,27 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    """
+    Parameters
+    ----------
+    (No input parameters; CLI args come from ``parse_args``.)
+
+    Output
+    ------
+    Output returned: ``None``. Side effect: writes ``channel_ablation.pdf`` and ``frame_ablation.pdf`` to the output directory and prints a JSON summary line.
+
+    Purpose
+    -------
+    Read every ``<encoder>/channel_ablation.json`` and ``<encoder>/frame_ablation.json`` under ``--ablations-dir`` and produce two figures: a grouped bar chart of per-channel test-MSE delta vs the no-ablation baseline (one bar group per channel, one bar per encoder), and a line plot of test MSE vs frame budget.
+
+    Assumptions
+    -----------
+    Designed for the JSON schema produced by ``run_ablations.py`` (``baseline``, ``per_channel`` list of records, ``per_frames`` list of records). Encoders without either JSON are silently skipped. Requires ``matplotlib`` to be installed.
+
+    Notes
+    -----
+    Channel-bar widths scale to ``0.8 / n_encoders`` so the grouped bars fit cleanly even with many encoders. The horizontal black line at delta = 0 marks the no-ablation baseline; a positive bar means MSE got worse when that channel was zeroed (i.e., the channel was informative).
+    """
     args = parse_args()
     ablations_dir = args.ablations_dir.expanduser().resolve()
     out_dir = (args.out_dir or ablations_dir).expanduser().resolve()

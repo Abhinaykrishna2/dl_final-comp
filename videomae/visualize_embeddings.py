@@ -21,6 +21,27 @@ import numpy as np
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parameters
+    ----------
+    (No input parameters; reads from ``sys.argv`` via ``argparse``.)
+
+    Output
+    ------
+    Output returned: An ``argparse.Namespace`` with attributes ``runs`` (list of "path:label" specs), ``out_dir``, ``split``, ``no_tsne``, ``max_samples``, ``seed``.
+
+    Purpose
+    -------
+    Define the CLI for ``python -m videomae.visualize_embeddings``. Each ``--runs`` entry takes the form ``<path>:<label>`` so labels appear directly in figure titles.
+
+    Assumptions
+    -----------
+    Designed to be called once at the start of ``main``. The path component of each ``--runs`` entry must contain ``embeddings/<split>.npz`` (produced by ``export_embeddings.py``).
+
+    Notes
+    -----
+    ``--no-tsne`` skips t-SNE entirely (saves ~5x time on small splits, ~20x on large ones). ``--max-samples`` is useful for the train split where t-SNE is the bottleneck.
+    """
     parser = argparse.ArgumentParser(description="PCA / t-SNE visualization of embeddings.")
     parser.add_argument("--runs", nargs="+", required=True,
                         help="One or more 'path:label' pairs pointing at run output directories.")
@@ -54,6 +75,27 @@ def _load_split(run_dir: Path, split: str) -> tuple[np.ndarray, np.ndarray] | No
 
 
 def main() -> None:
+    """
+    Parameters
+    ----------
+    (No input parameters; CLI args come from ``parse_args``.)
+
+    Output
+    ------
+    Output returned: ``None``. Side effect: writes ``embeddings_<split>.pdf`` (multi-panel figure) and ``embeddings_<split>_summary.json`` (per-run PCA explained-variance ratio) to the output directory.
+
+    Purpose
+    -------
+    Build a multi-panel figure where each row is one encoder and each column is one coloring scheme: PCA-2D colored by alpha, PCA-2D colored by zeta, [t-SNE-2D colored by alpha, t-SNE-2D colored by zeta]. Used to visually demonstrate the rank-vs-alignment trade-off that the report's PC-alignment analysis quantifies.
+
+    Assumptions
+    -----------
+    Designed for embeddings produced by ``export_embeddings.py`` (a ``.npz`` per split with ``embeddings`` and ``labels`` keys). Encoders missing the requested split are silently skipped with a printed status. Requires ``matplotlib`` and ``scikit-learn``.
+
+    Notes
+    -----
+    t-SNE perplexity is set to ``max(5, min(30, (n - 1) / 3))`` so it scales reasonably with the number of samples; PCA uses ``random_state=args.seed`` so two runs with the same arguments produce identical figures.
+    """
     args = parse_args()
     runs = _parse_runs(args.runs)
     out_dir = args.out_dir.expanduser().resolve()
