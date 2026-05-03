@@ -20,6 +20,13 @@ final_report.out
 icml2026/example_paper.*
 icml2026/icml_numpapers.pdf
 
+# Local merge/diagnostic scratch files not used by the final report.
+to_merge.tex
+icml_numpapers.pdf
+channel_ablation.pdf
+icml2026/cka_valid.pdf
+icml2026/final_report_refs.bib
+
 # Large training-state checkpoints that exceed GitHub's 100 MB per-file limit.
 # encoder_*.pt files are kept (~74 MB each) since they are needed for
 # downstream linear-probe / kNN evaluation.

@@ -44,7 +44,7 @@
 \printAffiliationsAndNotice{\icmlEqualContribution}
 
 \begin{abstract}
-We study self-supervised representation learning for the \texttt{active\_matter} dataset from The Well, where the final task is to recover the physical parameters $\alpha$ and $\zeta$ from frozen video embeddings using only a linear probe or k-nearest-neighbor regression. We compare three completed training paths: a JEPA-style ConvNeXt encoder regularized with VICReg, a larger SigReg-based JEPA variant that exposed collapse and evaluation pitfalls, and a final CNext-U-Net future-frame forecaster trained from scratch at $96\times 96$ resolution. The final encoder uses a forecasting decoder only during pretraining; downstream evaluation freezes the bottleneck encoder and exports trajectory-level pooled embeddings. The selected average-pooled model achieves normalized test mean MSE $0.1043$ with a linear probe and $0.0989$ with kNN regression, improving over the original JEPA/VICReg baseline of $0.2485$ and $0.2709$, respectively. Our analysis shows that the largest gains come from replacing fragile distribution matching with a direct physical forecasting objective and from preserving a consistent evaluation protocol across frozen embeddings.
+We study self-supervised representation learning for the \texttt{active\_matter} dataset from The Well, where the final task is to recover the physical parameters $\alpha$ and $\zeta$ from frozen video embeddings using only a linear probe or k-nearest-neighbor regression. We compare three completed training paths: a JEPA-style ConvNeXt encoder regularized with VICReg, a larger SigReg-based JEPA variant that exposed collapse and evaluation pitfalls, and a final CNext-U-Net future-frame forecaster trained from scratch at $96\times 96$ resolution. The final encoder uses a forecasting decoder only during pretraining; downstream evaluation freezes the bottleneck encoder and exports trajectory-level pooled embeddings. The selected average-pooled model achieves normalized test mean MSE $0.1043$ with a linear probe and $0.0989$ with kNN regression, improving over the JEPA/VICReg baseline at both $224\times224$ ($0.2485$ / $0.2709$) and a resolution-matched $96\times96$ rerun ($0.4260$ / $0.3865$). Our analysis shows that the largest gains come from replacing fragile distribution matching with a direct physical forecasting objective.
 \end{abstract}
 
 \section{Introduction}
@@ -133,6 +133,10 @@ where the regularizer measures deviation from an isotropic Gaussian through rand
 
 This experiment was important despite underperforming. It isolated a failure mode: with $\lambda=0.05$, the distribution term was too weak relative to the rapidly solved prediction loss. By epoch 2, prediction loss was already near zero; the encoder then stopped receiving useful pressure to improve its embedding distribution. The SigReg loss stayed frozen around 25.7268 on train and 9.625 on validation for the rest of the run.
 
+\subsection{Auxiliary Masked-Video and Supervised Diagnostics}
+
+In parallel with the final model, we ran diagnostic probes to understand whether the dataset rewards temporal context, channel content, and class separability. These runs were trained from scratch on \texttt{active\_matter}. The supervised ConvNeXt probes used $(\alpha,\zeta)$ labels directly and are therefore not eligible self-supervised submissions; they serve only as label-aware reference points. The VideoMAE-style probes used masked-video reconstruction, varying mask ratio, seed, training length, and the number of frames used at evaluation time \citep{tong2022videomae,he2022mae,xie2022simmim}. We also performed channel zero-out ablations, nearest-centroid classification over the 45 discrete $(\alpha,\zeta)$ combinations, and validation-set CKA comparisons between encoders \citep{kornblith2019cka}. These diagnostics explain the geometry of the task but were not used to choose the final checkpoint or final downstream hyperparameters.
+
 \subsection{Final CNext-U-Net Forecaster}
 
 The final model is a scratch CNext-U-Net forecaster. It uses ConvNeXt-style blocks in an encoder--decoder topology, predicts the next physical frame from a short context, and then discards the decoder for downstream evaluation. The choice is deliberately simple: instead of matching latent targets with a weak distribution regularizer, the model must preserve information sufficient to predict future physical fields.
@@ -145,11 +149,10 @@ For embedding export, the encoder is frozen. We use one deterministic 16-frame c
 
 \begin{figure*}[t]
 \centering
-\includegraphics[width=\textwidth,height=0.18\textheight,keepaspectratio]{loss_curves-1.png}
-\vspace{1mm}
-\includegraphics[width=\textwidth,height=0.18\textheight,keepaspectratio]{loss_curves-2.png}
-\caption{CNext-U-Net pretraining curves for the final encoder. Validation losses and relative MSE decrease steadily and then plateau near epoch 49, while train MSE and train loss continue to decline smoothly. The learning-rate panel shows the warmup followed by cosine decay used for the 50-epoch run.}
-\label{fig:cnext_curves}
+\includegraphics[width=0.49\textwidth,height=0.21\textheight,keepaspectratio]{frame_ablation.pdf}\hfill
+\includegraphics[width=0.49\textwidth,height=0.21\textheight,keepaspectratio]{class_separability.pdf}
+\caption{Auxiliary diagnostics from supervised and VideoMAE-style masked-video probes, not used for final model selection. Left: masked-video encoders benefit from more temporal context at evaluation time. Right: nearest-centroid classification over the 45 $(\alpha,\zeta)$ combinations shows that stronger downstream regression aligns with stronger parameter-class separability.}
+\label{fig:aux_diagnostics}
 \end{figure*}
 
 \section{Experiments}
@@ -159,33 +162,54 @@ Each completed encoder is evaluated with the same downstream restrictions: froze
 
 \begin{table*}[t]
 \centering
-\caption{Frozen-encoder downstream results. All MSE values are normalized by train-label statistics and evaluated on the held-out test split after validation-based selection. Lower is better.}
+\caption{Main frozen-encoder downstream results and auxiliary diagnostic probes. All MSE values are normalized by train-label statistics and evaluated on the held-out test split after validation-based selection. Auxiliary rows report mean MSE only and were not used as final submissions. Lower is better.}
 \label{tab:results}
+\resizebox{\textwidth}{!}{%
 \begin{tabular}{llrrrr}
 \toprule
 Encoder / objective & Evaluator & Mean MSE & $\alpha$ MSE & $\zeta$ MSE & Notes \\
 \midrule
 CNext-U-Net forecasting & kNN & \textbf{0.0989} & \textbf{0.0121} & \textbf{0.1857} & final avg-pool export \\
 CNext-U-Net forecasting & Linear & 0.1043 & 0.0371 & 0.1715 & required linear eval. \\
-JEPA + VICReg & Linear & 0.2485 & 0.1183 & 0.3786 & original baseline \\
-JEPA + VICReg & kNN & 0.2709 & 0.0472 & 0.4946 & original baseline \\
-ConvNeXt JEPA + SigReg & Linear & 0.5829 & 0.1872 & 0.9787 & SigReg frozen all 25 epochs; unfair vs.\ JEPA baseline \\
-ConvNeXt JEPA + SigReg & kNN & 0.5924 & 0.2058 & 0.9790 & SigReg frozen all 25 epochs; unfair vs.\ JEPA baseline \\
+JEPA + VICReg & Linear & 0.2485 & 0.1183 & 0.3786 & original 224×224 baseline \\
+JEPA + VICReg & kNN & 0.2709 & 0.0472 & 0.4946 & original 224×224 baseline \\
+JEPA + VICReg (96×96) & Linear & 0.4260 & 0.1129 & 0.7391 & 96×96 rerun; sliding-window export \\
+JEPA + VICReg (96×96) & kNN & 0.3865 & 0.2374 & 0.5356 & 96×96 rerun; $k{=}20$, cosine \\
+ConvNeXt JEPA + SigReg & Linear & 0.5829 & 0.1872 & 0.9787 & SigReg loss frozen; export mismatch \\
+ConvNeXt JEPA + SigReg & kNN & 0.5924 & 0.2058 & 0.9790 & SigReg loss frozen; export mismatch \\
+\midrule
+Supervised ConvNeXt probe & Direct reg. & 0.1090 & -- & -- & label-supervised diagnostic; seed 42 \\
+Supervised ConvNeXt probe & Direct reg. & 0.1080 & -- & -- & label-supervised diagnostic; seed 43 \\
+Supervised ConvNeXt probe & Direct reg. & 0.1450 & -- & -- & label-supervised diagnostic; seed 44 \\
+VideoMAE-style masked video & Probe & 0.2540 & -- & -- & main masked-video diagnostic \\
+VideoMAE-style masked video & Probe & 0.2830 & -- & -- & 50-epoch variant; seed 46 \\
+VideoMAE-style masked video & Probe & 0.3570 & -- & -- & main variant; seed 43 \\
+VideoMAE-style masked video & Probe & 0.2530 & -- & -- & main variant; seed 44 \\
+VideoMAE-style masked video & Probe & 0.2540 & -- & -- & mask ratio 60\% \\
+VideoMAE-style masked video & Probe & 0.2590 & -- & -- & mask ratio 75\% \\
+VideoMAE-style masked video & Probe & 0.2570 & -- & -- & mask ratio 90\% \\
+VideoMAE-style masked video & Probe & 0.2850 & -- & -- & mask ratio 90\%; seed 45 \\
 \bottomrule
 \end{tabular}
+}
 \end{table*}
 
 \paragraph{Main results.}
-Table~\ref{tab:results} summarizes the completed runs. The CNext-U-Net encoder is best under both allowed downstream evaluators. Against the JEPA/VICReg baseline, it improves linear-probe mean MSE by 58\% relative ($0.2485 \rightarrow 0.1043$) and kNN mean MSE by 63\% relative ($0.2709 \rightarrow 0.0989$). The kNN gain is especially large on $\alpha$, where MSE drops from 0.0472 to 0.0121. This indicates that future-frame forecasting produces a representation geometry with tighter local neighborhoods for the active dipole parameter.
+Table~\ref{tab:results} summarizes both the eligible frozen-encoder runs and the auxiliary diagnostics. The CNext-U-Net encoder is best under both allowed downstream evaluators. Against the JEPA/VICReg baseline, it improves linear-probe mean MSE by 58\% relative ($0.2485 \rightarrow 0.1043$) and kNN mean MSE by 63\% relative ($0.2709 \rightarrow 0.0989$). The kNN gain is especially large on $\alpha$, where MSE drops from 0.0472 to 0.0121. CNext improves over the available JEPA/VICReg baselines, including a resolution-matched $96\times96$ rerun, though a fully controlled comparison would also match the downstream export protocol. CNext uses all train-split windows for self-supervised pretraining, but its downstream linear and kNN fitting uses the stricter trajectory-level protocol: one frozen embedding per train trajectory, or 175 labeled train embeddings. The JEPA exports use sliding-window downstream fitting, producing 11,550 train embeddings with repeated trajectory labels. The supervised and VideoMAE-style rows are included for completeness from the merged diagnostics; they support the same conclusion but are not final submissions because the supervised probes use labels and the masked-video probes underperform CNext.
 
 \paragraph{Alpha versus zeta.}
 Across all successful runs, $\zeta$ is harder than $\alpha$. For the final CNext model, kNN obtains $\alpha$ MSE 0.0121 but $\zeta$ MSE 0.1857. The same pattern appears in the baseline. We interpret this as evidence that visual signatures of active dipole strength are more directly reflected in short-horizon dynamics, while steric alignment may require longer temporal context or more global statistics. The final model still improves $\zeta$ relative to the JEPA baseline, reducing kNN $\zeta$ MSE from 0.4946 to 0.1857.
+
+\paragraph{Auxiliary diagnostics.}
+We also ran supervised and VideoMAE-style masked-video probes to understand the data geometry; these were trained from scratch on \texttt{active\_matter} and were not used as final frozen-encoder submissions because they underperformed the selected CNext forecaster. The frame-budget trend in Figure~\ref{fig:aux_diagnostics} supports using deterministic 16-frame trajectory clips for export, especially for masked-video encoders whose test MSE improves as more temporal context is available. The nearest-centroid diagnostic over the 45 $(\alpha,\zeta)$ combinations shows that better downstream regression coincides with stronger parameter-class separability, reinforcing that the task rewards embeddings organized by physical parameter geometry rather than pixel loss alone.
 
 \section{Ablations and Failure Analysis}
 
 \subsection{VICReg Avoided Collapse but Overfit Early}
 
 The JEPA/VICReg baseline learned a healthy embedding space. The exported train embeddings had shape $11550\times128$, no dead dimensions under a standard deviation threshold of 0.01, and required 43 dimensions to explain 95\% of variance. This confirmed that VICReg's per-dimension variance and covariance penalties prevented collapse. However, training dynamics showed that the best validation checkpoint was early. Loss improved through epoch 5 and then validation loss increased, suggesting that the temporal prediction objective began overfitting or that the learning rate was too high for longer training. This was checkpoint selection on validation loss only; test labels were not used to choose epoch 5. This run was a strong baseline but not the final model.
+
+A resolution-matched 96×96 rerun under the same hyperparameters and sliding-window export scored LP MSE $0.4260$ (vs.\ $0.2485$ at $224\times224$) and kNN MSE $0.3865$ (vs.\ $0.2709$). Reducing spatial resolution hurt JEPA substantially, likely because the JEPA prediction task relies on spatial structure that is captured more richly at higher resolution. Despite this degradation, CNext at $96\times96$ outperforms JEPA at both resolutions, confirming that the objective is the dominant factor in the improvement.
 
 \subsection{SigReg Failed for Two Separate Reasons}
 
@@ -201,25 +225,27 @@ The embedding diagnostics agree with collapse: 62 of 256 dimensions had standard
 
 The CNext-U-Net model predicts physical fields directly. This removes the shortcut where a predictor can match a moving latent target without preserving downstream-relevant information. Forecasting also exposes the encoder to the field variables at every spatial location, so the bottleneck must retain information about local patterns, temporal evolution, and global state. The decoder can be discarded after pretraining, leaving a compact encoder with a useful embedding geometry.
 
-The training curve in Figure~\ref{fig:cnext_curves} supports this interpretation. Validation relative MSE decreased from 0.1153 at epoch 1 to approximately 0.00252 at epoch 49, with no analogous frozen auxiliary term. The train and validation curves both decrease smoothly, indicating genuine learning rather than an early degenerate shortcut. The downstream gains show that forecasting did not merely solve pixel-level reconstruction; it produced embeddings that better organize the physical parameters.
+The pretraining history supports this interpretation. Validation relative MSE decreased from 0.1153 at epoch 1 to approximately 0.00252 at epoch 49, with no analogous frozen auxiliary term. The train and validation curves both decreased smoothly, indicating genuine learning rather than an early degenerate shortcut. The downstream gains show that forecasting did not merely solve pixel-level reconstruction; it produced embeddings that better organize the physical parameters.
 
 \subsection{Pooling Ablation}
 
-The final encoder produces a $672$-channel bottleneck map. We therefore tested whether downstream performance should use average pooling, max pooling, or their concatenation. Table~\ref{tab:pooling_ablation} reports validation-selected test MSE for each pooling variant while keeping the encoder checkpoint, trajectory split, label normalization, and downstream search spaces fixed. Average pooling had the best validation MSE for both downstream evaluators and is therefore the selected final export. Max pooling achieved a slightly lower linear test MSE post hoc, but its validation MSE and kNN result were worse; selecting it on test performance would violate the validation-only model-selection protocol.
+The final encoder produces a $672$-channel bottleneck map. We therefore tested whether downstream performance should use average pooling, max pooling, or their concatenation. Table~\ref{tab:pooling_ablation} reports both validation and test MSE for each pooling variant while keeping the encoder checkpoint, trajectory split, label normalization, and downstream search spaces fixed. Average pooling had the best validation MSE for both downstream evaluators and is therefore the selected final export. Max pooling achieved a slightly lower linear test MSE post hoc, but its validation MSE and kNN result were worse; selecting it on test performance would violate the validation-only model-selection protocol.
 
 \begin{table}[t]
 \centering
-\caption{Pooling ablation for the final frozen CNext-U-Net encoder. Values are normalized test mean MSE after validation-based downstream selection.}
+\caption{Pooling ablation for the final frozen CNext-U-Net encoder. Values are normalized mean MSE; pooling is selected by validation performance.}
 \label{tab:pooling_ablation}
-\begin{tabular}{lrr}
+\resizebox{\columnwidth}{!}{%
+\begin{tabular}{lrrrr}
 \toprule
-Run & Linear MSE & kNN MSE \\
+Pooling & Linear val & Linear test & kNN val & kNN test \\
 \midrule
-Avg pooling only & 0.1043 & 0.0989 \\
-Max pooling only & 0.0959 & 0.1878 \\
-Avg + max pooling & 0.1992 & 0.1285 \\
+Avg only & \textbf{0.0593} & 0.1043 & \textbf{0.0240} & \textbf{0.0989} \\
+Max only & 0.1073 & 0.0959 & 0.0981 & 0.1878 \\
+Avg + max & 0.0886 & 0.1992 & 0.0612 & 0.1285 \\
 \bottomrule
 \end{tabular}
+}
 \end{table}
 
 The pooling variants also clarify what the final geometry is using. Max pooling preserves peak local activations, which can make individual feature coordinates more sharply aligned with a linear decision surface and explains why max-only has the lowest linear test MSE post hoc. However, those peaks are less stable as a distance metric: kNN depends on neighborhood consistency across whole trajectories, and average pooling better preserves the global activity pattern that makes nearby embeddings share similar $(\alpha,\zeta)$. Average+max concatenation increases dimensionality but also adds noisy peak-sensitive coordinates, which hurt distance-based regression on the small trajectory-level validation and test sets.
@@ -234,9 +260,9 @@ We checked this geometry after training using only the train embeddings. After z
 
 Table~\ref{tab:embedding_health} compares the same embedding diagnostics across the three main encoders. The CNext average-pooled embedding has many dimensions below the fixed 0.01 standard-deviation threshold, but this is partly a scale effect: its global feature standard deviation is only 0.0311, and no CNext dimension has standard deviation below $10^{-3}$. Therefore we interpret this as a compact low-amplitude trajectory representation rather than the SigReg failure mode, where poor downstream results, frozen regularization loss, and dead dimensions all appeared together.
 
-\begin{table}[H]
-\centering
-\caption{Embedding health diagnostics on train embeddings. ``Dead dims'' uses a fixed per-dimension standard-deviation threshold of 0.01.}
+\begin{center}
+\captionsetup{hypcap=false}
+\captionof{table}{Embedding health diagnostics on train embeddings. ``Dead dims'' uses a fixed per-dimension standard-deviation threshold of 0.01.}
 \label{tab:embedding_health}
 \resizebox{\columnwidth}{!}{%
 \begin{tabular}{lrrr}
@@ -249,13 +275,13 @@ CNext-U-Net & 285/672 & 13/672 & 0.0311 \\
 \bottomrule
 \end{tabular}
 }
-\end{table}
+\end{center}
 
 \section{Compute Accounting and Artifacts}
 
-\begin{table}[H]
-\centering
-\caption{Compute and artifact accounting. Earlier exploratory wall-clock logs were not retained, so exact GPU-hours are reported for the final run and configurations are listed for prior runs.}
+\begin{center}
+\captionsetup{hypcap=false}
+\captionof{table}{Compute and artifact accounting. Earlier exploratory wall-clock logs were not retained, so exact GPU-hours are reported for the final run and configurations are listed for prior runs.}
 \label{tab:compute}
 \resizebox{\columnwidth}{!}{%
 \begin{tabular}{@{}lll@{}}
@@ -263,13 +289,14 @@ CNext-U-Net & 285/672 & 13/672 & 0.0311 \\
 Run & Resource & Accounting \\
 \midrule
 JEPA/VICReg & $2\times$ A100, course HPC & 12 epochs; encoder + embeddings \\
+JEPA/VICReg 96×96 & $2\times$ A100, course HPC & rerun; encoder + embeddings + eval \\
 SigReg JEPA & $2\times$ A100, course HPC & 25 epochs; failure analysis \\
 CNext-U-Net & $1\times$ B200, private cluster & 50 epochs; 0.48 GPU-h \\
 Final eval. & $1\times$ B200, private cluster & $\sim$10 min; LP/kNN metrics \\
 \bottomrule
 \end{tabular}
 }
-\end{table}
+\end{center}
 
 The final CNext training log records 1726.89 seconds for 50 epochs, or 0.48 GPU-hours on one B200. Embedding export took approximately 3 minutes, the linear-probe sweep approximately 5 minutes, and the kNN sweep approximately 2 minutes. The committed artifacts include \texttt{encoder\_best.pt}, \texttt{encoder\_last.pt}, the training history and config JSON files, frozen train/validation/test embeddings, pooling-ablation embeddings and metrics, linear-probe weights and predictions, kNN predictions, and full training/evaluation logs. Larger optimizer-state checkpoints were intentionally not committed because they exceed common repository file-size limits; evaluation is reproducible from the committed frozen encoder.
 
@@ -278,7 +305,7 @@ All scripts set seed 42, but the final training config did not force determinist
 
 \section{Limitations and Ethics}
 
-The primary limitation is that the original JEPA/VICReg baseline used $224\times224$ frames, while the final CNext model used $96\times96$ frames after TA clarification that the frame size may be changed. Therefore, the comparison reflects the complete project trajectory and final model choice rather than a controlled resolution-matched ablation. A fully controlled study would retrain each objective at both resolutions with identical export modes.
+The original JEPA/VICReg baseline used $224\times224$ frames; the final CNext model used $96\times96$ frames after TA clarification that the frame size may be changed. CNext improves over the available JEPA/VICReg baselines, including a resolution-matched $96\times96$ rerun, though a fully controlled comparison would also match the downstream export protocol. One remaining protocol difference is downstream export: both JEPA runs used sliding-window downstream fitting with 11,550 train embeddings that repeat trajectory labels, while CNext used trajectory-level fitting with 175 train embeddings.
 
 Because downstream evaluation is trajectory-level, the final validation and test sets contain relatively few independent trajectories; therefore, the absolute MSE values should be interpreted alongside the consistent improvement across both linear probing and kNN.
 
@@ -288,11 +315,13 @@ Ethically, this work uses synthetic physical simulations rather than human data,
 
 \section{Statement of Contributions}
 
-Abhinay Krishna Bodi (ab11958) and Georgios Ioannao (gi2100) contributed equally to all aspects of the project. Both team members participated in problem formulation, dataset handling, model implementation, self-supervised training, downstream evaluation, collapse diagnosis, experiment analysis, artifact organization, and report writing. The final submitted code, artifacts, and conclusions reflect joint work by both contributors.
+Abhinay Krishna Bodi (ab11958) led the ConvNeXt JEPA encoder family, the JEPA/VICReg latent-prediction trainer (Sec.~4.1), the SigReg-regularized variant and its failure analysis (Sec.~4.2, Sec.~6.2), the resolution-matched 96$\times$96 JEPA rerun (Sec.~6.1), and the final CNext-U-Net forecaster (Sec.~4.4). Georgios Ioannou (gi2100) led the auxiliary supervised and VideoMAE-style masked-video diagnostic probes (Sec.~4.3), the channel-importance, frame-budget, and per-class separability analyses, and the cross-encoder CKA comparison.
+
+We acknowledge the use of Claude Code and OpenAI Codex as programming and writing-assistance tools for code editing, experiment organization, and report drafting. All final technical decisions, validation, and submitted claims were reviewed and approved by the authors.
 
 \section{Conclusion}
 
-We evaluated self-supervised representation learning strategies for active-matter parameter regression under strict frozen-encoder downstream constraints. VICReg provided a stable non-collapsed baseline, while the SigReg attempt demonstrated that low prediction loss can mask a collapsed or poorly exported embedding space. The final CNext-U-Net forecaster gave the best representation, reaching normalized test MSE 0.1043 with a linear probe and 0.0989 with kNN. The main lesson is that, for this dataset, a direct physical forecasting objective produced more useful frozen embeddings than latent distribution regularization alone.
+We evaluated self-supervised representation learning strategies for active-matter parameter regression under strict frozen-encoder downstream constraints. VICReg provided a stable non-collapsed baseline, while the SigReg attempt demonstrated that low prediction loss can mask a collapsed or poorly exported embedding space. The final CNext-U-Net forecaster gave the best representation, reaching normalized test MSE 0.1043 with a linear probe and 0.0989 with kNN. The main lesson is that, for this dataset, a direct physical forecasting objective produced more useful frozen embeddings than latent distribution regularization alone. CNext improves over the available JEPA/VICReg baselines, including a resolution-matched $96\times96$ rerun, though a fully controlled comparison would also match the downstream export protocol.
 
 \bibliography{final_report_refs}
 \bibliographystyle{icml2026/icml2026}

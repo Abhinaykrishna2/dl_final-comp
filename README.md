@@ -12,10 +12,12 @@ All numbers below are normalized MSE values on the held-out test split. Hyperpar
 |---|---|---:|---:|---:|---|
 | CNext-U-Net future-frame forecasting | kNN regression | 0.0989 | 0.0121 | 0.1857 | Best final result; avg pooling |
 | CNext-U-Net future-frame forecasting | Linear probe | 0.1043 | 0.0371 | 0.1715 | Required frozen linear evaluation; avg pooling |
-| JEPA + VICReg baseline | Linear probe | 0.2485 | 0.1183 | 0.3786 | Original 224x224 baseline |
-| JEPA + VICReg baseline | kNN regression | 0.2709 | 0.0472 | 0.4946 | Original 224x224 baseline |
-| ConvNeXt JEPA + SigReg | Linear probe | 0.5829 | 0.1872 | 0.9787 | SigReg term frozen all 25 epochs; export bug (175 vs 11,550 train samples) |
-| ConvNeXt JEPA + SigReg | kNN regression | 0.5924 | 0.2058 | 0.9790 | SigReg term frozen all 25 epochs; export bug (175 vs 11,550 train samples) |
+| JEPA + VICReg baseline | Linear probe | 0.2485 | 0.1183 | 0.3786 | Original 224x224; 11,550 sliding-window embeddings |
+| JEPA + VICReg baseline | kNN regression | 0.2709 | 0.0472 | 0.4946 | Original 224x224; 11,550 sliding-window embeddings |
+| JEPA + VICReg baseline (96x96) | Linear probe | 0.4260 | 0.1129 | 0.7391 | Resolution-matched rerun; 11,550 sliding-window embeddings |
+| JEPA + VICReg baseline (96x96) | kNN regression | 0.3865 | 0.2374 | 0.5356 | Resolution-matched rerun; k=20, cosine |
+| ConvNeXt JEPA + SigReg | Linear probe | 0.5829 | 0.1872 | 0.9787 | SigReg loss frozen; export mismatch |
+| ConvNeXt JEPA + SigReg | kNN regression | 0.5924 | 0.2058 | 0.9790 | SigReg loss frozen; export mismatch |
 
 The best submitted result is kNN regression on average-pooled frozen CNext-U-Net embeddings, with normalized test mean MSE `0.0989`. The same frozen encoder also satisfies the required linear-probe evaluation, with normalized test mean MSE `0.1043`.
 
@@ -78,7 +80,18 @@ This run produced a healthy, non-collapsed embedding space. The downstream resul
 
 The baseline shows that `alpha` is easier to recover than `zeta`. kNN predicts `alpha` particularly well, while linear probing is stronger on `zeta`, suggesting that `alpha` is more locally clustered in the representation space and `zeta` is more globally linear.
 
-To rerun this baseline at 96x96 for a resolution-matched comparison:
+### Resolution-matched 96x96 rerun
+
+The `baseline_jepa/` package reruns the same JEPA/VICReg objective at 96x96. Both resolutions used sliding-window export (175 trajectories × 66 clips = 11,550 train embeddings). Results:
+
+| Evaluator | Test mean MSE | Test alpha MSE | Test zeta MSE |
+|---|---:|---:|---:|
+| Linear probe | 0.4260 | 0.1129 | 0.7391 |
+| kNN (k=20, cosine) | 0.3865 | 0.2374 | 0.5356 |
+
+Reducing resolution from 224x224 to 96x96 substantially degraded JEPA performance. CNext improves over the available JEPA/VICReg baselines, including the resolution-matched 96x96 rerun, though a fully controlled comparison would also match the downstream export protocol. CNext uses all train-split windows for SSL pretraining, but its downstream linear/kNN fitting uses the stricter trajectory-level protocol: one frozen embedding per train trajectory, or 175 labeled train embeddings. The JEPA exports use sliding-window downstream fitting, producing 11,550 train embeddings with repeated trajectory labels.
+
+To rerun this baseline at 96x96:
 
 ```bash
 DATA_ROOT=/path/to/active_matter bash experiments/01_ejepa_vicreg_baseline/run_full_pipeline.sh
@@ -105,7 +118,7 @@ The training finished but the SigReg regularization never worked. `train_sigreg_
 
 **What the encoder actually learned:** It is a temporal prediction model — it learned to map context → target representations, but the embedding distribution is not isotropic. The kNN benefit expected from SigReg did not materialize.
 
-The model is still worth examining: it is 3× larger than the JEPA baseline (9.83M vs 3.27M params) and `pred_loss` converged very well (~7.5e-7). However, the downstream scores below cannot be treated as a fair comparison because the embedding export also used `single_clip` mode, yielding only 175 training embeddings instead of the 11,550 sliding-window embeddings used by the JEPA baseline. Both failures — the frozen regularizer and the export mismatch — need to be corrected before a valid comparison is possible.
+The model is still worth examining: it is 3× larger than the JEPA baseline (9.83M vs 3.27M params) and `pred_loss` converged very well (~7.5e-7). However, the downstream scores cannot be treated as a fair comparison because the embedding export used `single_clip` mode — one deterministic embedding per trajectory, the same trajectory-level protocol the CNext model uses. The JEPA baseline used sliding-window mode (11,550 train embeddings), giving it a large advantage in downstream training data. Both failures — the frozen regularizer and the export mismatch — act simultaneously on the reported SigReg scores.
 
 Embedding diagnostics showed collapse:
 
@@ -159,11 +172,11 @@ This is the final selected encoder and pooling export. It improves over the JEPA
 
 Pooling ablation:
 
-| Pooling export | Linear test mean MSE | kNN test mean MSE |
-|---|---:|---:|
-| Average pooling | 0.1043 | 0.0989 |
-| Max pooling | 0.0959 | 0.1878 |
-| Average + max pooling | 0.1992 | 0.1285 |
+| Pooling export | Linear valid mean MSE | Linear test mean MSE | kNN valid mean MSE | kNN test mean MSE |
+|---|---:|---:|---:|---:|
+| Average pooling | 0.0593 | 0.1043 | 0.0240 | 0.0989 |
+| Max pooling | 0.1073 | 0.0959 | 0.0981 | 0.1878 |
+| Average + max pooling | 0.0886 | 0.1992 | 0.0612 | 0.1285 |
 
 Average pooling had the best validation MSE for both downstream evaluators and is therefore the selected final export. The max-pooling linear test value is lower post hoc, but selecting it based on test performance would violate the validation-only selection protocol.
 
@@ -246,6 +259,10 @@ The training and evaluation code is structured to prevent label leakage:
 
 ## Notes On Comparability
 
-The original JEPA/VICReg baseline used 224x224 frames. The final CNext-U-Net model uses 96x96 frames after TA clarification that this is allowed. The repository now includes a `baseline_jepa` 96x96 rerun wrapper so the baseline can be recomputed under the same frame size; until those new metrics are available, the final table should be read as the project trajectory and final model selection rather than a controlled resolution-matched ablation.
+The original JEPA/VICReg baseline used 224x224 frames. The final CNext-U-Net model uses 96x96 frames after TA clarification that this is allowed. CNext improves over the available JEPA/VICReg baselines, including the resolution-matched 96x96 rerun, though a fully controlled comparison would also match the downstream export protocol. One remaining protocol difference is downstream export: both JEPA runs used sliding-window downstream fitting with 11,550 train embeddings that repeat trajectory labels, while CNext used trajectory-level fitting with 175 train embeddings.
 
-The SigReg downstream scores are included for completeness, but the run has two independent failures: (1) `train_sigreg_loss` was frozen at 25.7268 from epoch 2 to epoch 25 — the distribution regularization provided effectively zero gradient signal because `pred_loss` hit near-zero first and the 5% SigReg weight was too weak to move the encoder out of that local minimum; (2) the downstream export used `single_clip` mode, giving only 175 training embeddings against the 11,550 used by the JEPA baseline. The reported scores reflect both failures simultaneously and cannot be used as a fair comparison.
+The SigReg downstream scores are included for completeness but reflect two independent failures: (1) `train_sigreg_loss` was frozen at 25.7268 from epoch 2 to epoch 25 — the distribution regularization provided effectively zero gradient signal because `pred_loss` hit near-zero first and the 5% SigReg weight was too weak to move the encoder; (2) the downstream export used `single_clip` mode (trajectory-level, same as CNext), while the JEPA baseline used sliding-window (11,550 train embeddings), giving JEPA an unfair advantage in downstream training data. The reported scores reflect both failures simultaneously and cannot be used as a fair comparison against either model.
+
+## Tool Use Acknowledgement
+
+Claude Code and OpenAI Codex were used as programming and writing-assistance tools for code editing, experiment organization, and report drafting. All final technical decisions, validation, and submitted claims were reviewed and approved by the authors.
