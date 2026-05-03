@@ -65,9 +65,14 @@ VideoMAE relies disproportionately on the concentration scalar field
 per-channel reconstruction MSE ($0.22$ for concentration vs.\ $0.55$--$0.78$
 for orientation/strain). Finally, reconstruction loss is \emph{decoupled
 from downstream MSE}: a 50-epoch run reduces validation recon loss by $24\%$
-without improving linear-probe MSE. Together, five independent quantitative
+without improving linear-probe MSE. As a third data point Person A's
+CNext-U-Net forecaster (linear $0.199$, kNN $0.128$) sits between supervised
+and VideoMAE -- forecasting features are better aligned with $(\alpha,\zeta)$
+than masked-reconstruction features, refining the
+\citet{qu2026spatiotemporal} ordering. Together, six independent quantitative
 characterizations form one argument: pixel reconstruction is fundamentally
-misaligned with parameter estimation on this dataset.
+misaligned with parameter estimation on this dataset, but the
+\emph{form} of the prediction objective (next-frame vs.\ same-frame) matters.
 \end{abstract}
 
 \section{Introduction}
@@ -215,13 +220,18 @@ available. Best per column among \emph{our} entries in \textbf{bold}.}
 \quad VideoMAE-mask$0.60$, 50\,ep, 1 seed (s$=46$)      & 8.07 & 0.338 & 0.179 & 0.497 & 0.389 & 6.47 & 0.050 \\
 \quad VideoMAE-mask$0.75$, 1 seed                       & 8.07 & 0.299 & 0.075 & 0.522 & 0.672 & \textbf{8.87} & \textbf{0.039} \\
 \quad VideoMAE-mask$0.90$, 2 seeds (44, 45)             & 8.07 & 0.255$\pm$0.002 & 0.108$\pm$0.003 & 0.402$\pm$0.007 & 0.503$\pm$0.039 & 7.92 & 0.042 \\
+\quad CNext-U-Net forecaster (Person A)\textsuperscript{$\dagger$}  & 18.59 & 0.199 & 0.116 & 0.283 & 0.128 & 7.67 & 0.057 \\
 \quad SIGReg-JEPA (Person A)                            & 7.72 & TBD   & TBD   & TBD   & TBD   & TBD            & TBD            \\
 \midrule
 \multicolumn{8}{l}{\emph{External references (Qu et al., attentive-probe FT for 100 epochs -- different protocol):}} \\
 \quad JEPA, ConvNeXt                        & ${\sim}3.3$ & 0.079 & --- & --- & --- & --- & --- \\
 \quad VideoMAE, ViT-tiny/16                 & ${\sim}5.5$ & 0.160 & --- & --- & --- & --- & --- \\
 \bottomrule
-\end{tabular}
+\end{tabular}\\[3pt]
+{\footnotesize $\dagger$ CNext-U-Net was implemented by Person~A; we ran the
+training (50 epochs, res $96$, $4{\to}1$ forecasting, $\sim$$30$\,min) and
+eval on our 2$\times$ B200 server using the workflow committed to the
+\texttt{main} branch.}
 \end{table*}
 
 Three observations stand out from Tab.~\ref{tab:main-results}.
@@ -250,18 +260,12 @@ is still $\sim$$2.4{\times}$ worse than the supervised baseline -- the SSL
 paradigm itself is the limiting factor, not the mask ratio.
 
 \paragraph{(2b) Reconstruction loss is decoupled from downstream MSE.}
-Training VideoMAE-mask$0.60$ for $50$ epochs instead of $25$ reduces the
-validation reconstruction loss by $24\%$ ($0.501 \to 0.378$) but
-\emph{does not improve the linear probe test MSE} (in fact $0.331 \to 0.338$,
-slightly worse), although it does improve kNN test MSE ($0.610 \to 0.389$).
-This empirically confirms the SimMIM observation that "stronger inpainting
-capability does not necessarily lead to better fine-tuning performance"
-(\citealp{xie2022simmim}, Tab.~2) on physical fields. The kNN improvement
-without linear-probe improvement is itself instructive: longer SSL training
-distributes more information across the embedding (longer training increases
-the average per-dim std), which kNN can exploit non-linearly via local
-neighbourhoods, while a linear probe still cannot find a useful low-dimensional
-projection.
+Training VideoMAE-mask$0.60$ for $50$ epochs instead of $25$ reduces validation
+reconstruction loss by $24\%$ ($0.501 \to 0.378$) but \emph{does not improve
+linear probe MSE} ($0.331 \to 0.338$), although kNN improves ($0.610 \to
+0.389$). This empirically confirms SimMIM Tab.~2: "stronger inpainting
+capability does not necessarily lead to better fine-tuning performance" --
+extended here to physical fields.
 
 \paragraph{(3) Seed stability.} The supervised baseline is highly reproducible
 (linear MSE std $\sim$$0.006$ over 3 seeds, CKA $\geq 0.96$ between seeds).
@@ -394,23 +398,18 @@ a diagnostic (random baseline $\approx 2.2\%$).
     matters.
 \end{itemize}
 
-\paragraph{Per-channel reconstruction MSE.} As a direct test of \emph{which
-output channels} VideoMAE actually tries to reconstruct, we feed validation
-clips through each VideoMAE encoder+decoder and measure the per-channel MSE
-on masked positions (in the per-tube z-scored target space). Across all
-VideoMAE configurations (mask $0.60/0.75/0.90$, two seeds), the result is
-remarkably consistent:
-\emph{the concentration scalar field is reconstructed to MSE $\approx 0.22$,
-while the four orientation tensor channels and four strain tensor channels
-all sit in the $0.55$--$0.78$ range, $2.5$--$3.5{\times}$ harder} (Tab.
-\ref{tab:recon-channel-mse}, Appendix). The 2-channel velocity field is
-intermediate ($0.41$--$0.57$). This is a \emph{causal} confirmation of the
+\paragraph{Per-channel reconstruction MSE.} Feeding validation clips through
+each VideoMAE encoder+decoder, the per-channel masked-position MSE
+(Tab.~\ref{tab:recon-channel-mse}, Appendix) is remarkably consistent across
+all 5 VideoMAE configs: the concentration scalar field is reconstructed to
+MSE $\approx 0.22$, while orientation/strain tensor channels sit at
+$0.55$--$0.78$ ($2.5$--$3.5{\times}$ harder); velocity is intermediate
+($0.41$--$0.57$). This is a \emph{causal} confirmation of the
 channel-importance ablation: VideoMAE allocates decoder capacity to the
-concentration field because it can be reconstructed sharply, then relies on
-that channel at downstream evaluation time -- exactly the failure mode the
-channel-zeroing experiment exposed. Increasing the mask ratio from $0.60$ to
-$0.90$ uniformly raises reconstruction difficulty (mean per-channel MSE
-$0.51 \to 0.55 \to 0.68$) but does not change \emph{which} channel is easiest.
+easy-to-reconstruct concentration field, then relies on it at evaluation
+time. Higher mask ratios uniformly raise difficulty
+($0.51 \to 0.55 \to 0.68$ mean) but do not change \emph{which} channel is
+easiest.
 
 Together, the channel-importance, frame-budget, top-PC-alignment,
 per-class-separability, and per-channel-reconstruction analyses give five
@@ -447,7 +446,20 @@ improves linear MSE but even the best VideoMAE
 shaping objective that allocates capacity away from the target. This is
 \citet{qu2026spatiotemporal}'s headline claim with a mechanistic
 explanation, holding under the strictly weaker probe protocol our assignment
-requires.
+requires. Person~A's CNext-U-Net forecaster (predict the next frame from a
+$4$-frame context at resolution $96$) is an instructive third data point
+within the pixel-based SSL family: it reaches linear MSE $0.199$ and kNN MSE
+$0.128$ -- substantially better than VideoMAE's masked reconstruction and
+approaching supervised on kNN. \emph{Within} pixel-based SSL, what differs
+between VideoMAE and CNext-U-Net is the prediction horizon: VideoMAE
+reconstructs masked spatiotemporal tubes at the same time step, while
+CNext-U-Net predicts a future frame. Forecasting forces the encoder to learn
+the system's local dynamics, which is closer to "what the parameters $\alpha$
+and $\zeta$ control." This sub-ordering -- supervised $<$ forecasting (CNext)
+$<$ masked reconstruction (VideoMAE) -- refines the
+\citet{qu2026spatiotemporal} narrative: not all pixel-prediction objectives
+are equal; objectives that encode dynamics are better aligned with
+parameter estimation than objectives that merely encode static structure.
 
 \section{Limitations and Ethics}
 
