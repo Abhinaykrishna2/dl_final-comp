@@ -14,4 +14,4 @@ Interpretation:
 
 The prediction task reached a local minimum quickly, and the SIGReg coefficient was too weak at `lejepa-lambda=0.05` to reshape the encoder. If SIGReg is applied only to the projector, it also does not guarantee that the pooled encoder features exported for downstream kNN become isotropic.
 
-This is a useful negative result for the final report. Do not present this as the final method. Present it as the collapse study that motivated moving to V-JEPA/EMA masking and then to the CNext-U-Net forecasting objective.
+This experiment is retained as a negative result. It shows that the SIGReg configuration used here did not produce the intended embedding distribution, and it motivated the later V-JEPA/EMA masking ablation and the final CNext-U-Net forecasting objective.

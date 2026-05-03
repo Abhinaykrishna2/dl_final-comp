@@ -26,4 +26,4 @@ Final downstream result:
 | Linear probe | 0.0886 | 0.1992 | 0.1157 | 0.2827 |
 | kNN | 0.0612 | 0.1285 | 0.0121 | 0.2449 |
 
-Use kNN `0.1285` normalized test MSE as the headline final number, and include the linear probe `0.1992` because the project requires both.
+The best final downstream result is kNN regression with normalized test mean MSE `0.1285`. The frozen encoder also satisfies the required linear-probe evaluation, with normalized test mean MSE `0.1992`.

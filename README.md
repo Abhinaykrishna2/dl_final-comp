@@ -4,7 +4,7 @@ This repository contains the final project code for learning frozen video repres
 
 The current best submission path is the 96x96 CNext-U-Net forecaster. The older JEPA, SIGReg, and V-JEPA experiments are kept as part of the study because the project is evaluated on the representation-learning process and collapse analysis, not just the final downstream number.
 
-## Project Rules
+## Compliance With Project Constraints
 
 The implementation is organized around the constraints in `Final Project.docx`:
 
@@ -45,7 +45,7 @@ Recorded baseline results from `baseline.txt`:
 | Linear probe | 0.2158 | 0.2485 | 5.27 |
 | kNN | 0.1960 | 0.2709 | 6.77 |
 
-This baseline was trained with the earlier 224x224 preprocessing. It is still useful as the first milestone, but it should be disclosed as a different-resolution baseline. A strict architecture-only comparison would require retraining it at 96x96.
+This baseline was trained with the earlier 224x224 preprocessing. It is included as the original baseline run. The final CNext-U-Net run uses 96x96 frames after TA clarification that the patch/frame size may be changed, so the baseline comparison is an end-to-end project comparison rather than a controlled resolution-only ablation.
 
 ### 2. ConvNeXt JEPA + SIGReg Attempt
 
@@ -65,13 +65,13 @@ Observed failure mode:
 
 The main interpretation is that the SIGReg gradient was too weak at `lejepa-lambda=0.05`, especially once the prediction branch had already become easy. When SIGReg was applied to the projection head, the regularization also did not directly guarantee that the pooled encoder features used for downstream kNN were isotropic.
 
-This run is useful in the final report as a collapse-mitigation study: `--target-stop-grad` fixed the direct target-branch collapse, but it did not make the distribution regularizer strong enough to affect the final frozen embedding space.
+This run is included as a negative result and collapse-mitigation study. `--target-stop-grad` fixed the direct target-branch collapse, but the distribution regularizer still did not become strong enough to affect the final frozen embedding space.
 
 ### 3. V-JEPA / EMA Masking Attempt
 
 The V-JEPA-style path in `active_matter_ssl/train_vjepa.py` was added as a more conservative collapse-mitigation experiment. It uses spatial masking and an EMA target encoder so the online encoder predicts target features without directly chasing a rapidly moving target branch.
 
-This is a good ablation to discuss because it addresses a concrete problem from the SIGReg run: the prediction task should remain nontrivial longer, and the EMA target should reduce degenerate shortcuts. It is not the final selected result in this repository because the CNext-U-Net forecaster produced stronger downstream numbers under the time limit.
+This ablation addresses a concrete problem observed in the SIGReg run: the prediction task needs to remain nontrivial for longer, and the EMA target reduces the chance of directly chasing a rapidly moving target branch. It is not the final selected result in this repository because the CNext-U-Net forecaster produced stronger downstream validation and test numbers under the project deadline.
 
 ### 4. Final CNext-U-Net Forecaster
 
@@ -96,6 +96,19 @@ Final CNext downstream results:
 | kNN | 0.0612 | 0.1285 | 0.0121 | 0.2449 | k=5, distance weights, euclidean, feature zscore |
 
 The final kNN result is the strongest recorded number in this repository. The linear probe also improves over the original baseline, but the larger gain is in kNN, which suggests that the CNext future-prediction objective produced a more useful neighborhood geometry than the earlier JEPA baseline.
+
+## Final Results
+
+The final selected encoder is the 96x96 CNext-U-Net forecaster. Results below are normalized MSE values on the held-out test split after validation-based model selection.
+
+| Encoder | Downstream evaluator | Test mean MSE | Test alpha MSE | Test zeta MSE |
+|---|---|---:|---:|---:|
+| CNext-U-Net forecaster | kNN regression | 0.1285 | 0.0121 | 0.2449 |
+| CNext-U-Net forecaster | Linear probe | 0.1992 | 0.1157 | 0.2827 |
+| E-JEPA / VICReg baseline | Linear probe | 0.2485 | not available in `baseline.txt` | not available in `baseline.txt` |
+| E-JEPA / VICReg baseline | kNN regression | 0.2709 | not available in `baseline.txt` | not available in `baseline.txt` |
+
+The best final metric is obtained by kNN regression on frozen CNext-U-Net embeddings, with normalized test mean MSE `0.1285`. The required linear-probe evaluation on the same frozen encoder gives normalized test mean MSE `0.1992`.
 
 ## Reproducing The Final Run
 
@@ -162,25 +175,9 @@ python -m active_matter_ssl.eval_knn \
 
 The exact server-side reproduction recipe and committed artifact list are also in `cnext_logs/REPRODUCE.md`.
 
-## What To Report
+## Leakage Prevention
 
-Use the CNext-U-Net kNN result as the best final metric:
-
-- test normalized mean MSE: `0.1285`
-- test normalized alpha MSE: `0.0121`
-- test normalized zeta MSE: `0.2449`
-
-Use the CNext-U-Net linear probe as the required linear downstream result:
-
-- test normalized mean MSE: `0.1992`
-- test normalized alpha MSE: `0.1157`
-- test normalized zeta MSE: `0.2827`
-
-In the writeup, present the 224x224 E-JEPA/VICReg result as the original baseline and clearly state that the final model uses 96x96 after TA clarification. The fairest wording is that the final CNext model improves the end-to-end downstream result, while the baseline comparison is not a pure controlled resolution ablation.
-
-## Leakage Checks
-
-The code path is designed to avoid label leakage:
+The training and evaluation code is structured to prevent label leakage from the physical parameters into self-supervised representation learning:
 
 - `ActiveMatterWindowDataset` has an `include_labels` flag.
 - `train_jepa.py`, `train_vjepa.py`, and `train_cnext_forecaster.py` pass `include_labels=False` for representation learning.
@@ -188,4 +185,8 @@ The code path is designed to avoid label leakage:
 - The linear probe and kNN scripts fit normalizers and models from train embeddings, select hyperparameters by validation MSE, and report the selected model on test.
 - The committed final checkpoints are trained from scratch and do not load pretrained weights.
 
-The final report should avoid claiming that the SIGReg run succeeded. It should frame SIGReg as a negative result that motivated the move to a direct future-frame forecasting objective.
+## Limitations
+
+The SIGReg experiment did not produce the intended distributional regularization effect. Its prediction loss converged rapidly, while the SIGReg statistics stayed nearly fixed, so it is treated as a negative result rather than a successful final approach.
+
+The original E-JEPA/VICReg baseline was trained at 224x224, while the final CNext-U-Net forecaster was trained at 96x96 after TA clarification. Therefore, the final comparison reflects the complete project trajectory and final model choice, not a strictly controlled resolution-matched ablation.
