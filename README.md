@@ -105,8 +105,6 @@ The final selected encoder is the 96x96 CNext-U-Net forecaster. Results below ar
 |---|---|---:|---:|---:|
 | CNext-U-Net forecaster | kNN regression | 0.1285 | 0.0121 | 0.2449 |
 | CNext-U-Net forecaster | Linear probe | 0.1992 | 0.1157 | 0.2827 |
-| E-JEPA / VICReg baseline | Linear probe | 0.2485 | not available in `baseline.txt` | not available in `baseline.txt` |
-| E-JEPA / VICReg baseline | kNN regression | 0.2709 | not available in `baseline.txt` | not available in `baseline.txt` |
 
 The best final metric is obtained by kNN regression on frozen CNext-U-Net embeddings, with normalized test mean MSE `0.1285`. The required linear-probe evaluation on the same frozen encoder gives normalized test mean MSE `0.1992`.
 
