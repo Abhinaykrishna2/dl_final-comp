@@ -14,7 +14,7 @@
 \makeatother
 \usepackage[accepted]{icml2026}
 \makeatletter
-\renewcommand{\ICML@appearing}{\textit{Final project report. New York University, 2026.}}
+\renewcommand{\ICML@appearing}{\textit{DS-GA 1008 Final project report. New York University, 2026.}}
 \makeatother
 \renewcommand{\ttdefault}{cmtt}
 
@@ -29,12 +29,12 @@
 
 \begin{icmlauthorlist}
   \icmlauthor{Abhinay Krishna Bodi (ab11958)}{equal,nyu}
-  \icmlauthor{Georgios Ioannao (gi2100)}{equal,nyu}
+  \icmlauthor{Georgios Ioannou (gi2100)}{equal,nyu}
 \end{icmlauthorlist}
 
 \icmlaffiliation{nyu}{New York University}
 \icmlcorrespondingauthor{Abhinay Krishna Bodi}{ab11958@nyu.edu}
-\icmlcorrespondingauthor{Georgios Ioannao}{gi2100@nyu.edu}
+\icmlcorrespondingauthor{Georgios Ioannou}{gi2100@nyu.edu}
 \icmlkeywords{Self-supervised learning, physical simulation, active matter, JEPA, ConvNeXt, kNN regression}
 \hypersetup{pdfsubject={Final project report. New York University, 2026}}
 
@@ -151,7 +151,7 @@ For embedding export, the encoder is frozen. We use one deterministic 16-frame c
 \centering
 \includegraphics[width=0.49\textwidth,height=0.21\textheight,keepaspectratio]{frame_ablation.pdf}\hfill
 \includegraphics[width=0.49\textwidth,height=0.21\textheight,keepaspectratio]{class_separability.pdf}
-\caption{Auxiliary diagnostics from supervised and VideoMAE-style masked-video probes, not used for final model selection. Left: masked-video encoders benefit from more temporal context at evaluation time. Right: nearest-centroid classification over the 45 $(\alpha,\zeta)$ combinations shows that stronger downstream regression aligns with stronger parameter-class separability.}
+\caption{Auxiliary diagnostics from supervised and VideoMAE-style masked-video probes, not used for final model selection. Left: masked-video encoders benefit from more temporal context at evaluation time, while supervised saturates earlier. Top right: Fisher separability (inter- over intra-class centroid distance) over the 45 $(\alpha,\zeta)$ combinations on the train split. Bottom right: nearest-centroid validation accuracy on the same 45 combinations. Both confirm that stronger downstream regression coincides with stronger parameter-class separability.}
 \label{fig:aux_diagnostics}
 \end{figure*}
 
@@ -162,35 +162,36 @@ Each completed encoder is evaluated with the same downstream restrictions: froze
 
 \begin{table*}[t]
 \centering
-\caption{Main frozen-encoder downstream results and auxiliary diagnostic probes. All MSE values are normalized by train-label statistics and evaluated on the held-out test split after validation-based selection. Auxiliary rows report mean MSE only and were not used as final submissions. Lower is better.}
+\caption{Main frozen-encoder downstream results and auxiliary diagnostic probes. All MSE values are normalized by train-label statistics and evaluated on the held-out test split after validation-based selection. Multi-seed entries are reported as mean$\pm$std. Auxiliary rows are listed for completeness; the supervised rows used $(\alpha,\zeta)$ labels during pretraining (label-aware diagnostic, not a frozen-SSL submission), and the masked-video rows underperform CNext. Lower is better; bold = best per column.}
 \label{tab:results}
 \resizebox{\textwidth}{!}{%
-\begin{tabular}{llrrrr}
+\begin{tabular}{llrrrl}
 \toprule
 Encoder / objective & Evaluator & Mean MSE & $\alpha$ MSE & $\zeta$ MSE & Notes \\
 \midrule
+\multicolumn{6}{l}{\emph{Eligible frozen-encoder runs}}\\
 CNext-U-Net forecasting & kNN & \textbf{0.0989} & \textbf{0.0121} & \textbf{0.1857} & final avg-pool export \\
 CNext-U-Net forecasting & Linear & 0.1043 & 0.0371 & 0.1715 & required linear eval. \\
-JEPA + VICReg & Linear & 0.2485 & 0.1183 & 0.3786 & original 224×224 baseline \\
-JEPA + VICReg & kNN & 0.2709 & 0.0472 & 0.4946 & original 224×224 baseline \\
-JEPA + VICReg (96×96) & Linear & 0.4260 & 0.1129 & 0.7391 & 96×96 rerun; sliding-window export \\
-JEPA + VICReg (96×96) & kNN & 0.3865 & 0.2374 & 0.5356 & 96×96 rerun; $k{=}20$, cosine \\
-ConvNeXt JEPA + SigReg & Linear & 0.5829 & 0.1872 & 0.9787 & SigReg loss frozen; export mismatch \\
-ConvNeXt JEPA + SigReg & kNN & 0.5924 & 0.2058 & 0.9790 & SigReg loss frozen; export mismatch \\
+JEPA + VICReg ($224{\times}224$) & Linear & 0.2485 & 0.1183 & 0.3786 & original baseline \\
+JEPA + VICReg ($224{\times}224$) & kNN & 0.2709 & 0.0472 & 0.4946 & original baseline \\
+JEPA + VICReg ($96{\times}96$) & Linear & 0.4260 & 0.1129 & 0.7391 & resolution-matched rerun \\
+JEPA + VICReg ($96{\times}96$) & kNN & 0.3865 & 0.2374 & 0.5356 & resolution-matched rerun \\
+ConvNeXt JEPA + SigReg & Linear & 0.5829 & 0.1872 & 0.9787 & SigReg frozen; export mismatch \\
+ConvNeXt JEPA + SigReg & kNN & 0.5924 & 0.2058 & 0.9790 & SigReg frozen; export mismatch \\
 \midrule
-Supervised ConvNeXt probe & Direct reg. & 0.1090 & -- & -- & label-supervised diagnostic; seed 42 \\
-Supervised ConvNeXt probe & Direct reg. & 0.1080 & -- & -- & label-supervised diagnostic; seed 43 \\
-Supervised ConvNeXt probe & Direct reg. & 0.1450 & -- & -- & label-supervised diagnostic; seed 44 \\
-VideoMAE-style masked video & Probe & 0.2540 & -- & -- & main masked-video diagnostic \\
-VideoMAE-style masked video & Probe & 0.2830 & -- & -- & 50-epoch variant; seed 46 \\
-VideoMAE-style masked video & Probe & 0.3570 & -- & -- & main variant; seed 43 \\
-VideoMAE-style masked video & Probe & 0.2530 & -- & -- & main variant; seed 44 \\
-VideoMAE-style masked video & Probe & 0.2540 & -- & -- & mask ratio 60\% \\
-VideoMAE-style masked video & Probe & 0.2590 & -- & -- & mask ratio 75\% \\
-VideoMAE-style masked video & Probe & 0.2570 & -- & -- & mask ratio 90\% \\
-VideoMAE-style masked video & Probe & 0.2850 & -- & -- & mask ratio 90\%; seed 45 \\
+\multicolumn{6}{l}{\emph{Auxiliary diagnostics (not final submissions)}}\\
+Supervised ConvNeXt ($3$ seeds) & Linear & $0.106{\pm}0.006$ & $0.029{\pm}0.006$ & $0.182{\pm}0.017$ & label-supervised reference \\
+Supervised ConvNeXt ($3$ seeds) & kNN & $0.106{\pm}0.020$ & $0.022{\pm}0.012$ & $0.190{\pm}0.030$ & label-supervised reference \\
+VideoMAE-style mask $0.60$ ($3$ seeds) & Linear & $0.317{\pm}0.024$ & $0.124{\pm}0.014$ & $0.510{\pm}0.040$ & masked-video diagnostic \\
+VideoMAE-style mask $0.60$ ($3$ seeds) & kNN & $0.562{\pm}0.035$ & $0.156{\pm}0.020$ & $0.967{\pm}0.054$ & masked-video diagnostic \\
+VideoMAE-style mask $0.60$, $50$ ep & Linear & $0.338$ & $0.179$ & $0.497$ & recon-loss decoupling test \\
+VideoMAE-style mask $0.60$, $50$ ep & kNN & $0.389$ & $0.194$ & $0.583$ & recon-loss decoupling test \\
+VideoMAE-style mask $0.75$ & Linear & $0.299$ & $0.075$ & $0.522$ & mask-ratio sweep \\
+VideoMAE-style mask $0.75$ & kNN & $0.672$ & $0.297$ & $1.046$ & mask-ratio sweep \\
+VideoMAE-style mask $0.90$ ($2$ seeds) & Linear & $0.255{\pm}0.002$ & $0.108{\pm}0.003$ & $0.402{\pm}0.007$ & mask-ratio sweep \\
+VideoMAE-style mask $0.90$ ($2$ seeds) & kNN & $0.503{\pm}0.039$ & $0.217{\pm}0.017$ & $0.789{\pm}0.060$ & mask-ratio sweep \\
 \bottomrule
-\end{tabular}
+\end{tabular}%
 }
 \end{table*}
 
@@ -201,7 +202,7 @@ Table~\ref{tab:results} summarizes both the eligible frozen-encoder runs and the
 Across all successful runs, $\zeta$ is harder than $\alpha$. For the final CNext model, kNN obtains $\alpha$ MSE 0.0121 but $\zeta$ MSE 0.1857. The same pattern appears in the baseline. We interpret this as evidence that visual signatures of active dipole strength are more directly reflected in short-horizon dynamics, while steric alignment may require longer temporal context or more global statistics. The final model still improves $\zeta$ relative to the JEPA baseline, reducing kNN $\zeta$ MSE from 0.4946 to 0.1857.
 
 \paragraph{Auxiliary diagnostics.}
-We also ran supervised and VideoMAE-style masked-video probes to understand the data geometry; these were trained from scratch on \texttt{active\_matter} and were not used as final frozen-encoder submissions because they underperformed the selected CNext forecaster. The frame-budget trend in Figure~\ref{fig:aux_diagnostics} supports using deterministic 16-frame trajectory clips for export, especially for masked-video encoders whose test MSE improves as more temporal context is available. The nearest-centroid diagnostic over the 45 $(\alpha,\zeta)$ combinations shows that better downstream regression coincides with stronger parameter-class separability, reinforcing that the task rewards embeddings organized by physical parameter geometry rather than pixel loss alone.
+We also ran supervised and VideoMAE-style masked-video probes to understand the data geometry; these were trained from scratch on \texttt{active\_matter} and were not used as final frozen-encoder submissions because they underperformed the selected CNext forecaster. The frame-budget trend in Figure~\ref{fig:aux_diagnostics} supports using deterministic 16-frame trajectory clips for export, especially for masked-video encoders whose test MSE improves as more temporal context is available. The nearest-centroid diagnostic over the 45 $(\alpha,\zeta)$ combinations shows that better downstream regression coincides with stronger parameter-class separability, reinforcing that the task rewards embeddings organized by physical parameter geometry rather than pixel loss alone. The mask-ratio sweep ($0.60\rightarrow0.75\rightarrow0.90$, $0.317\rightarrow0.299\rightarrow0.255$ on linear probe) and the $50$-epoch mask-$0.60$ run (24\% better validation reconstruction loss but no improvement on linear probe) both confirm that, within masked-video pretraining, hyperparameter tuning cannot close the gap to forecasting-style SSL.
 
 \section{Ablations and Failure Analysis}
 
@@ -209,7 +210,7 @@ We also ran supervised and VideoMAE-style masked-video probes to understand the 
 
 The JEPA/VICReg baseline learned a healthy embedding space. The exported train embeddings had shape $11550\times128$, no dead dimensions under a standard deviation threshold of 0.01, and required 43 dimensions to explain 95\% of variance. This confirmed that VICReg's per-dimension variance and covariance penalties prevented collapse. However, training dynamics showed that the best validation checkpoint was early. Loss improved through epoch 5 and then validation loss increased, suggesting that the temporal prediction objective began overfitting or that the learning rate was too high for longer training. This was checkpoint selection on validation loss only; test labels were not used to choose epoch 5. This run was a strong baseline but not the final model.
 
-A resolution-matched 96×96 rerun under the same hyperparameters and sliding-window export scored LP MSE $0.4260$ (vs.\ $0.2485$ at $224\times224$) and kNN MSE $0.3865$ (vs.\ $0.2709$). Reducing spatial resolution hurt JEPA substantially, likely because the JEPA prediction task relies on spatial structure that is captured more richly at higher resolution. Despite this degradation, CNext at $96\times96$ outperforms JEPA at both resolutions, confirming that the objective is the dominant factor in the improvement.
+A resolution-matched 96×96 rerun under the same hyperparameters and sliding-window export scored LP MSE $0.4260$ (vs.\ $0.2485$ at $224\times224$) and kNN MSE $0.3865$ (vs.\ $0.2709$). Reducing spatial resolution hurt JEPA substantially, likely because the JEPA prediction task relies on spatial structure that is captured more richly at higher resolution. Despite this degradation, CNext at $96\times96$ outperforms JEPA at both resolutions, suggesting that the objective is the dominant factor in the improvement.
 
 \subsection{SigReg Failed for Two Separate Reasons}
 
@@ -275,7 +276,7 @@ CNext-U-Net & 285/672 & 13/672 & 0.0311 \\
 \bottomrule
 \end{tabular}
 }
-\end{center}
+\end{center} 
 
 \section{Compute Accounting and Artifacts}
 
