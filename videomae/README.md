@@ -1,13 +1,14 @@
-# `videomae/` - VideoMAE / SimMIM-Hybrid SSL Stream for Active Matter
+# `videomae/` &mdash; VideoMAE / SimMIM-Hybrid SSL Stream for Active Matter
 
 A self-contained Python package implementing a **VideoMAE / SimMIM-hybrid masked-autoencoder
 SSL track** on the `active_matter` dataset, an **end-to-end supervised baseline**, and a
 **representation-quality analysis suite** (channel/frame ablations, top-PC alignment,
-class separability, CKA, per-channel reconstruction MSE). All code, scripts, and report
-sources for this stream live under this directory; the parallel JEPA SSL stream lives in
-`physrl/`.
+class separability, CKA, per-channel reconstruction MSE). All code and scripts for this stream
+live under this directory; the parallel JEPA SSL stream lives in `physrl/`.
 
-The deliverable is **`videomae/report/report.pdf`**.
+Primary outputs live under **`videomae/artifacts/`**: JSON metrics, regenerated figures
+(`artifacts/figures/figures.pdf`), analysis PDFs, plus training logs. Large checkpoints and
+embeddings are gitignored until you reproduce locally.
 
 ---
 
@@ -20,7 +21,7 @@ The deliverable is **`videomae/report/report.pdf`**.
 5. [Running the pipeline](#running-the-pipeline)
 6. [Experiment tracking (Weights & Biases and logs)](#experiment-tracking-weights--biases-and-logs)
 7. [File and script index](#file-and-script-index)
-8. [Results map (report claim &rarr; artifact)](#results-map-report-claim--artifact)
+8. [Results map (claim to artifact)](#results-map-claim-to-artifact)
 9. [Hyperparameters and citations](#hyperparameters-and-citations)
 10. [Assignment-constraint compliance](#assignment-constraint-compliance)
 11. [Troubleshooting](#troubleshooting)
@@ -49,11 +50,12 @@ pip install -r videomae/requirements-lock.txt
 python data_loader.py --root /root/data --workers 16
 python count_dataset_files.py /root/data
 
-# 4. Reproduce the entire pipeline (training + eval + figures + report PDF)
+# 4. Reproduce the entire pipeline (training + eval + figures)
 bash videomae/scripts/reproduce_main_result.sh
 
-# 5. Inspect the deliverable
-xdg-open videomae/report/report.pdf || open videomae/report/report.pdf
+# 5. Inspect aggregates and the 4-panel figure
+xdg-open videomae/artifacts/aggregated/aggregated_results.md || true
+xdg-open videomae/artifacts/figures/figures.pdf || open videomae/artifacts/figures/figures.pdf
 ```
 
 If you only want to **regenerate figures from the JSON metrics committed to the repo**
@@ -83,7 +85,7 @@ python -m videomae.plot_from_json \
 | `videomae_main_50ep_s46` (decoupling test)   | ~6 h           | 1 GPU           |
 | Eval (export + linear probe + kNN + analysis) per encoder | ~10 min  | 1 GPU |
 | 5 cross-encoder analyses (PC, CKA, recon, separability, ablations) | ~30 min | 1 GPU |
-| LaTeX report compile                         | ~30 s          | none            |
+| Aggregate metrics + figure regen (`plot_from_json`) | ~1 min     | none            |
 | **Full `reproduce_main_result.sh` end-to-end** | **~24 h**    | **2 GPUs**      |
 
 ### Disk
@@ -108,9 +110,8 @@ python -m videomae.plot_from_json \
 Story: supervised is the upper-bound anchor; among SSL pixel-reconstruction objectives
 the mask ratio sweep is monotonic (0.60 &rarr; 0.75 &rarr; 0.90 = 0.317 &rarr; 0.299
 &rarr; 0.255). VideoMAE keeps a much richer representation (effective rank ~8 vs ~3.5 for
-supervised) but at the cost of target alignment. See
-`videomae/report/report.pdf` for the full discussion and the comparison against
-the JEPA stream.
+supervised) but at the cost of target alignment. See `videomae/artifacts/aggregated/aggregated_results.md`
+and `videomae/artifacts/figures/figures.pdf`, and compare against the JEPA stream on `main`.
 
 ---
 
@@ -123,7 +124,7 @@ the JEPA stream.
 - **CPU / RAM:** 60 vCPU, 361 GiB RAM, ~860 GB free disk on `/`.
 - **Python:** 3.10.12.
 
-The exact environment used to produce every number in the report is documented in
+The exact environment used to reproduce the metrics and figures summarized here is documented in
 [`ENV.md`](./ENV.md); the pinned package list is in
 [`requirements-lock.txt`](./requirements-lock.txt).
 
@@ -161,7 +162,7 @@ For non-B200 GPUs (A100 / L40S), the default `requirements.txt` works.
 pip install -r videomae/requirements-lock.txt
 ```
 
-This is a frozen `pip freeze` snapshot from the run that produced the report. Alternative,
+This is a frozen `pip freeze` snapshot from the runs that produced this branch's headline numbers. Alternative,
 unpinned install:
 
 ```bash
@@ -299,7 +300,7 @@ Training runs use **experiment tracking and plain-text logs** together:
 
 - **Weights & Biases:** Both [`train_videomae.py`](./train_videomae.py) and [`train_supervised.py`](./train_supervised.py) log epochs and summaries through W&B. The default is **`--wandb-mode offline`** (no API key, no cloud upload during training); runs write under each run's output directory (`videomae/artifacts/<run>/wandb/`). Use `--wandb-mode online` to stream to wandb.ai, or `--wandb-mode disabled` to skip W&B entirely. See [Troubleshooting, item 5 (W&B asks for an API key)](#5-wb-asks-for-an-api-key-on-training-start) below.
 - **JSON logs:** Every trainer also writes **`history.json`** (per-epoch metrics), **`train_config.json`** (full argparse dump), and on best checkpoints merges in **`wandb_run_id`** when W&B was active. Evaluation stages write **`metrics.json`** under each subfolder (`linear_probe/`, `knn/`, `analysis/`).
-- **What graders see in-repo:** Offline W&B run directories are **gitignored** (see `.gitignore`: `videomae/artifacts/**/wandb/`) alongside large checkpoints so the branch stays lightweight. Committed **`videomae/artifacts/logs/*.out`** captures `nohup` / script stdout including W&B status lines (`wandb: Tracking run...`, `wandb sync ...`). For curve-level verification without retraining, prefer **`history.json`** and the [**Results map**](#results-map-report-claim--artifact) table.
+- **What graders see in-repo:** Offline W&B run directories are **gitignored** (see `.gitignore`: `videomae/artifacts/**/wandb/`) alongside large checkpoints so the branch stays lightweight. Committed **`videomae/artifacts/logs/*.out`** captures `nohup` / script stdout including W&B status lines (`wandb: Tracking run...`, `wandb sync ...`). For curve-level verification without retraining, prefer **`history.json`** and the [**Results map**](#results-map-claim-to-artifact) table.
 
 ---
 
@@ -332,7 +333,7 @@ Training runs use **experiment tracking and plain-text logs** together:
 | [`class_separability.py`](./class_separability.py) | 45-class Fisher score and nearest-centroid accuracy. |
 | [`per_channel_recon_mse.py`](./per_channel_recon_mse.py) | VideoMAE-only: per-channel masked-position reconstruction MSE. |
 
-### Visualization and reporting
+### Visualization
 
 | File | Purpose |
 |------|---------|
@@ -372,30 +373,29 @@ Training runs use **experiment tracking and plain-text logs** together:
 
 ---
 
-## Results map (report claim &rarr; artifact)
+## Results map (claim to artifact)
 
-Use this table to verify a specific number, figure, or claim in
-[`report/report.pdf`](./report/report.pdf).
+Use this table to verify a specific number, figure, or claim against the committed (or reproduced) artifacts.
 
-| Report element                              | Source artifact |
+| Claim / element                             | Source artifact |
 |---------------------------------------------|-----------------|
-| Tab. 1 (main results)                       | `videomae/artifacts/aggregated/aggregated_results.{json,md}` |
+| Main results (aggregate)                    | `videomae/artifacts/aggregated/aggregated_results.{json,md}` |
 | Per-encoder linear-probe / kNN / analysis numbers | `videomae/artifacts/<run>/{linear_probe,knn,analysis}/metrics.json` |
 | Per-epoch loss curves                       | `videomae/artifacts/<run>/history.json` |
 | Hyperparameter dump per run                 | `videomae/artifacts/<run>/train_config.json` |
-| Fig. 1 left (CKA heatmap)                   | `videomae/artifacts/cka/{cka_valid.json,cka_valid.pdf}` |
-| Fig. 1 right (top-PC alignment curve)       | `videomae/artifacts/pc_alignment/{pc_alignment.json,pc_alignment.pdf}` |
-| Fig. 2 left (channel-importance ablation)   | `videomae/artifacts/ablations/<run>/channel_ablation.json` + `videomae/artifacts/ablations/channel_ablation.pdf` |
-| Fig. 2 right (frame-budget ablation)        | `videomae/artifacts/ablations/<run>/frame_ablation.json` + `videomae/artifacts/ablations/frame_ablation.pdf` |
+| CKA heatmap                              | `videomae/artifacts/cka/{cka_valid.json,cka_valid.pdf}` |
+| Top-PC alignment curve                       | `videomae/artifacts/pc_alignment/{pc_alignment.json,pc_alignment.pdf}` |
+| Channel-importance ablation                | `videomae/artifacts/ablations/<run>/channel_ablation.json` + `videomae/artifacts/ablations/channel_ablation.pdf` |
+| Frame-budget ablation                      | `videomae/artifacts/ablations/<run>/frame_ablation.json` + `videomae/artifacts/ablations/frame_ablation.pdf` |
 | Per-channel reconstruction MSE              | `videomae/artifacts/per_channel_recon_mse/{per_channel_recon_mse.json,per_channel_recon_mse.pdf}` |
 | Per-class separability (Fisher / NC)        | `videomae/artifacts/class_separability/{class_separability.json,class_separability.pdf}` |
 | Embedding visualizations (PCA / t-SNE)      | `videomae/artifacts/embeddings_viz/embeddings_valid.pdf` |
 | Reconstruction visualizations               | `videomae/artifacts/recon_viz/recon_<run>_sample<idx>_t<t>.pdf` |
-| 4-panel summary figure                      | `videomae/artifacts/figures/figures.pdf` |
+| Combined 4-panel summary figure                          | `videomae/artifacts/figures/figures.pdf` |
 
 Large binary artifacts (`*.pt` checkpoints, `*.npz` embeddings, `wandb/` offline runs) are
 gitignored to stay under GitHub's 100 MB-per-file limit; everything you need to verify a
-report claim is in the JSON and PDF files. To regenerate the binaries, follow steps 3 and
+headline number or analysis plot is in the JSON and analysis PDF files. To regenerate the binaries, follow steps 3 and
 4 of [Quickstart](#quickstart-5-commands).
 
 ---
@@ -499,7 +499,7 @@ To keep the SSL-objective comparison causally clean, the encoder used by this st
   suite.
 
 The JEPA half of the joint comparison (SIGReg-JEPA, VICReg-JEPA) is in
-`physrl/` on the `main` branch and contributes Tab. 1 rows for those methods. A separate
+`physrl/` on the `main` branch and contributes headline comparison rows for those methods. A separate
 CNext-UNet next-frame-forecasting baseline lives in `cnext_logs/REPRODUCE.md` on `main`
 (switch branches with `git checkout main` to view it).
 
@@ -518,9 +518,3 @@ CNext-UNet next-frame-forecasting baseline lives in `cnext_logs/REPRODUCE.md` on
 | Pinned package list          | [`requirements-lock.txt`](./requirements-lock.txt) |
 | Full environment spec        | [`ENV.md`](./ENV.md) |
 | Idempotent reproduction      | [`scripts/reproduce_main_result.sh`](./scripts/reproduce_main_result.sh) |
-
-To find the exact commit that produced the report PDF in `videomae/report/report.pdf`:
-
-```bash
-git log --diff-filter=A -- videomae/report/report.pdf | head -3
-```

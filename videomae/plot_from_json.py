@@ -1,4 +1,4 @@
-"""Regenerate every report figure from JSON logs, no W&B required.
+"""Regenerate the 2x2 comparison figure from JSON logs, no W&B required.
 
 Reads ``history.json`` (training-loss curves) and ``analysis.json`` (collapse /
 isotropy diagnostics) for every encoder we care about and produces a single
@@ -40,7 +40,7 @@ def parse_args() -> argparse.Namespace:
 
     Purpose
     -------
-    Define the CLI for ``python -m videomae.plot_from_json`` so the report's figures.pdf can be regenerated entirely from local JSON logs (no W&B access required).
+    Define the CLI for ``python -m videomae.plot_from_json`` so ``figures.pdf`` can be regenerated entirely from local JSON logs (no W&B access required).
 
     Assumptions
     -----------
@@ -50,7 +50,7 @@ def parse_args() -> argparse.Namespace:
     -----
     ``--analysis-subdir`` defaults to ``analysis``; the override exists in case the analysis was written elsewhere by an earlier run of ``analyze_representations.py``.
     """
-    parser = argparse.ArgumentParser(description="Regenerate report figures from JSON logs.")
+    parser = argparse.ArgumentParser(description="Regenerate comparison figures from JSON logs.")
     parser.add_argument(
         "--runs", nargs="+", required=True,
         help="One or more 'path:label' pairs pointing at run output directories.",
@@ -212,7 +212,7 @@ def main() -> None:
 
     Purpose
     -------
-    Read every per-run JSON log (``history.json``, ``analysis/analysis.json``, ``linear_probe/metrics.json``, ``knn/metrics.json``) and assemble a one-page comparison figure for the report. Designed to be idempotent: re-running it always produces the same PDF for the same JSON inputs.
+    Read every per-run JSON log (``history.json``, ``analysis/analysis.json``, ``linear_probe/metrics.json``, ``knn/metrics.json``) and assemble a one-page comparison figure. Designed to be idempotent: re-running it always produces the same PDF for the same JSON inputs.
 
     Assumptions
     -----------
@@ -220,7 +220,7 @@ def main() -> None:
 
     Notes
     -----
-    The 2x2 layout is chosen so the PDF can be embedded as a single figure in the report; the four panels were selected as the minimum set that conveys (a) optimization dynamics, (b) representation collapse, (c) isotropy, and (d) downstream regression accuracy.
+    The 2x2 layout fits a single printable page; the four panels were selected as the minimum set that conveys (a) optimization dynamics, (b) representation collapse, (c) isotropy, and (d) downstream regression accuracy.
     """
     args = parse_args()
     runs = _parse_runs(args.runs)

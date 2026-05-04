@@ -1,7 +1,6 @@
 # Environment specification for the videomae stream
 
-This is the exact environment used to produce every result in our half of the
-report. Reproducibility is one-shot: a fresh container that runs
+This is the exact environment used to produce every aggregated result and figure artifact in this branch. Reproducibility is one-shot: a fresh container that runs
 `videomae/scripts/reproduce_main_result.sh` after replicating this environment
 should land within the documented tolerance of every reported number.
 

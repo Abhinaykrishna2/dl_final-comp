@@ -8,7 +8,7 @@ should already give good MSE; if the encoder is rank-rich but
 target-misaligned, K=2 will be much worse than K=full.
 
 This is the strongest single quantitative test for the
-"rank-vs-alignment" claim in the report.
+"rank-vs-alignment" hypothesis in our evaluation narrative.
 
 Reads existing .npz embedding dumps; no new training required.
 """
@@ -158,7 +158,7 @@ def main() -> None:
 
     Purpose
     -------
-    For each encoder, fit a linear probe on just the top-K principal components of the embedding (K in ``--ks``) instead of the full 256-d. If the encoder's leading directions are aligned with (alpha, zeta), the K=2 probe should already give good MSE; if the encoder is rank-rich but target-misaligned, K=2 will be far worse than K=full. This is the strongest single quantitative test for the rank-vs-alignment claim in the report.
+    For each encoder, fit a linear probe on just the top-K principal components of the embedding (K in ``--ks``) instead of the full 256-d. If the encoder's leading directions are aligned with (alpha, zeta), the K=2 probe should already give good MSE; if the encoder is rank-rich but target-misaligned, K=2 will be far worse than K=full. This is the strongest single quantitative test for the rank-vs-alignment hypothesis in this evaluation.
 
     Assumptions
     -----------

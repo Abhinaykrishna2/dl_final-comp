@@ -1,10 +1,10 @@
-"""Aggregate per-encoder eval results into a single JSON for the report.
+"""Aggregate per-encoder eval results into a single JSON summary.
 
 Reads from videomae/artifacts/<run>/{linear_probe,knn,analysis}/metrics.json
 or analysis.json, and produces:
 
 * ``aggregated_results.json`` -- machine-readable per-run table
-* ``aggregated_results.md``   -- human-readable Markdown report-ready table
+* ``aggregated_results.md``   -- human-readable Markdown comparison table
 
 Optionally accepts an external ``--colleague-json`` path with a payload of the
 form ``{"jepa_best": {...}, "vicreg_best": {...}, ...}`` containing the

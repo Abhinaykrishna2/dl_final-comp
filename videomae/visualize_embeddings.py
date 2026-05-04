@@ -86,7 +86,7 @@ def main() -> None:
 
     Purpose
     -------
-    Build a multi-panel figure where each row is one encoder and each column is one coloring scheme: PCA-2D colored by alpha, PCA-2D colored by zeta, [t-SNE-2D colored by alpha, t-SNE-2D colored by zeta]. Used to visually demonstrate the rank-vs-alignment trade-off that the report's PC-alignment analysis quantifies.
+    Build a multi-panel figure where each row is one encoder and each column is one coloring scheme: PCA-2D colored by alpha, PCA-2D colored by zeta, [t-SNE-2D colored by alpha, t-SNE-2D colored by zeta]. Used to visually demonstrate the rank-vs-alignment trade-off that the PC-alignment analysis quantifies.
 
     Assumptions
     -----------

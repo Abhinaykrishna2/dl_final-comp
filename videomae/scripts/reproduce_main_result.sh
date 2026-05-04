@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# End-to-end reproduction of every result in our half of the report.
+# End-to-end reproduction of training, eval, aggregates, and figures for this stream.
 #
 # Usage:
 #   bash videomae/scripts/reproduce_main_result.sh
@@ -253,12 +253,4 @@ python -m videomae.plot_from_json \
     --runs $(for r in "${ALL_RUNS[@]}"; do [[ -f "${ART}/${r}/encoder_best.pt" ]] && echo "${ART}/${r}:${r}"; done) \
     --out-dir "${ART}/figures"
 
-# 9. Compile the report PDF
-if command -v pdflatex >/dev/null 2>&1; then
-    (cd videomae/report && \
-        pdflatex -interaction=nonstopmode -halt-on-error report.tex >/dev/null 2>&1 && \
-        pdflatex -interaction=nonstopmode -halt-on-error report.tex >/dev/null 2>&1)
-    echo "[repro] report at videomae/report/report.pdf"
-fi
-
-echo "[repro] done."
+echo "[repro] done. Figures: videomae/artifacts/figures/figures.pdf"

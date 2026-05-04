@@ -1,6 +1,6 @@
 """End-to-end supervised baseline for active matter parameter estimation.
 
-This is the upper-bound anchor for the report: same encoder as VideoMAE / SIGReg-JEPA
+This is the upper-bound anchor for the comparison: same encoder as VideoMAE / SIGReg-JEPA
 (byte-identical ConvEncoder) plus a single linear head, trained directly on the
 (alpha, zeta) labels with z-scored MSE loss. Per the assignment FAQ, training a
 purely supervised baseline "provides insights into the value of [the SSL] approach."
@@ -198,7 +198,7 @@ class SupervisedModel(nn.Module):
 
     Purpose
     -------
-    End-to-end supervised baseline: ``ConvEncoder`` + spatiotemporal pool + ``nn.Linear(embed_dim, num_outputs)``. Trains directly on the regression target with MSE loss to provide an upper-bound anchor for the report (assignment FAQ: "training a supervised baseline provides insights into the value of [the SSL] approach").
+    End-to-end supervised baseline: ``ConvEncoder`` + spatiotemporal pool + ``nn.Linear(embed_dim, num_outputs)``. Trains directly on the regression target with MSE loss to provide an upper-bound anchor for the comparison (assignment FAQ: "training a supervised baseline provides insights into the value of [the SSL] approach").
 
     Assumptions
     -----------
@@ -206,7 +206,7 @@ class SupervisedModel(nn.Module):
 
     Notes
     -----
-    A low end-to-end MSE combined with a high frozen-probe MSE on the same encoder is a particularly interesting result: it would indicate the supervised gradient collapsed the representation to a 2-D target-aligned subspace that is no longer linearly separable for downstream tasks. This is exactly what the report's PC-alignment analysis confirms.
+    A low end-to-end MSE combined with a high frozen-probe MSE on the same encoder is a particularly interesting result: it would indicate the supervised gradient collapsed the representation to a 2-D target-aligned subspace that is no longer linearly separable for downstream tasks. That pattern matches what the quantitative PC-alignment analysis shows.
     """
 
     def __init__(self, encoder: ConvEncoder, num_outputs: int = 2, pool: str = "avg") -> None:
