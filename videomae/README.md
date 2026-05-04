@@ -1,4 +1,4 @@
-# `videomae/` &mdash; VideoMAE / SimMIM-Hybrid SSL Stream for Active Matter
+# `videomae/` - VideoMAE / SimMIM-Hybrid SSL Stream for Active Matter
 
 A self-contained Python package implementing a **VideoMAE / SimMIM-hybrid masked-autoencoder
 SSL track** on the `active_matter` dataset, an **end-to-end supervised baseline**, and a
@@ -23,10 +23,9 @@ embeddings are gitignored until you reproduce locally.
 7. [File and script index](#file-and-script-index)
 8. [Results map (claim to artifact)](#results-map-claim-to-artifact)
 9. [Hyperparameters and citations](#hyperparameters-and-citations)
-10. [Assignment-constraint compliance](#assignment-constraint-compliance)
-11. [Troubleshooting](#troubleshooting)
-12. [File provenance](#file-provenance)
-13. [Reproducibility receipts](#reproducibility-receipts)
+10. [Troubleshooting](#troubleshooting)
+11. [File provenance](#file-provenance)
+12. [Reproducibility receipts](#reproducibility-receipts)
 
 ---
 
@@ -424,18 +423,6 @@ References:
 - Tong et al., **"VideoMAE: Masked Autoencoders Are Data-Efficient Learners for Self-Supervised Video Pre-Training"**, NeurIPS 2022, [arXiv:2203.12602](https://arxiv.org/abs/2203.12602).
 - Xie et al., **"SimMIM: A Simple Framework for Masked Image Modeling"**, CVPR 2022, [arXiv:2111.09886](https://arxiv.org/abs/2111.09886).
 - Kornblith et al., **"Similarity of Neural Network Representations Revisited"**, ICML 2019, [arXiv:1905.00414](https://arxiv.org/abs/1905.00414).
-
----
-
-## Assignment-constraint compliance
-
-| Constraint | Status | Evidence |
-|---|---|---|
-| Train from scratch, no pretrained weights | yes | No checkpoint loading from external sources; encoder weights are randomly initialized at training start. |
-| Total params < 100 M | yes | 8.07 M (VideoMAE: encoder + decoder + mask token); 7.72 M (supervised: encoder + linear head). See `train_config.json` per run. |
-| Active matter dataset only | yes | All trainers and analyses point at `--data-root /root/data` (`polymathic-ai/active_matter`). |
-| No training on val/test | yes | `LabelNormalizer.fit` runs on **train** labels only; test split is touched only by `eval_knn.py` and the final-eval block of `sweep_linear_probe.py`. |
-| Linear probe + kNN as the evaluation | yes | `sweep_linear_probe.py` and `eval_knn.py` are the only frozen-encoder evaluators. The supervised model is a separate comparison artifact, not the headline eval. |
 
 ---
 
