@@ -1,4 +1,4 @@
-# `videomae/` &mdash; VideoMAE / SimMIM-Hybrid SSL Stream for Active Matter
+# `videomae/` - VideoMAE / SimMIM-Hybrid SSL Stream for Active Matter
 
 A self-contained Python package implementing a **VideoMAE / SimMIM-hybrid masked-autoencoder
 SSL track** on the `active_matter` dataset, an **end-to-end supervised baseline**, and a
@@ -18,13 +18,14 @@ The deliverable is **`videomae/report/report.pdf`**.
 3. [Setup](#setup)
 4. [Dataset](#dataset)
 5. [Running the pipeline](#running-the-pipeline)
-6. [File and script index](#file-and-script-index)
-7. [Results map (report claim &rarr; artifact)](#results-map-report-claim--artifact)
-8. [Hyperparameters and citations](#hyperparameters-and-citations)
-9. [Assignment-constraint compliance](#assignment-constraint-compliance)
-10. [Troubleshooting](#troubleshooting)
-11. [File provenance](#file-provenance)
-12. [Reproducibility receipts](#reproducibility-receipts)
+6. [Experiment tracking (Weights & Biases and logs)](#experiment-tracking-weights--biases-and-logs)
+7. [File and script index](#file-and-script-index)
+8. [Results map (report claim &rarr; artifact)](#results-map-report-claim--artifact)
+9. [Hyperparameters and citations](#hyperparameters-and-citations)
+10. [Assignment-constraint compliance](#assignment-constraint-compliance)
+11. [Troubleshooting](#troubleshooting)
+12. [File provenance](#file-provenance)
+13. [Reproducibility receipts](#reproducibility-receipts)
 
 ---
 
@@ -292,6 +293,16 @@ Every CLI tool in this package supports `--help` for full options.
 
 ---
 
+## Experiment tracking (Weights & Biases and logs)
+
+Training runs use **experiment tracking and plain-text logs** together:
+
+- **Weights & Biases:** Both [`train_videomae.py`](./train_videomae.py) and [`train_supervised.py`](./train_supervised.py) log epochs and summaries through W&B. The default is **`--wandb-mode offline`** (no API key, no cloud upload during training); runs write under each run's output directory (`videomae/artifacts/<run>/wandb/`). Use `--wandb-mode online` to stream to wandb.ai, or `--wandb-mode disabled` to skip W&B entirely. See [Troubleshooting, item 5 (W&B asks for an API key)](#5-wb-asks-for-an-api-key-on-training-start) below.
+- **JSON logs:** Every trainer also writes **`history.json`** (per-epoch metrics), **`train_config.json`** (full argparse dump), and on best checkpoints merges in **`wandb_run_id`** when W&B was active. Evaluation stages write **`metrics.json`** under each subfolder (`linear_probe/`, `knn/`, `analysis/`).
+- **What graders see in-repo:** Offline W&B run directories are **gitignored** (see `.gitignore`: `videomae/artifacts/**/wandb/`) alongside large checkpoints so the branch stays lightweight. Committed **`videomae/artifacts/logs/*.out`** captures `nohup` / script stdout including W&B status lines (`wandb: Tracking run...`, `wandb sync ...`). For curve-level verification without retraining, prefer **`history.json`** and the [**Results map**](#results-map-report-claim--artifact) table.
+
+---
+
 ## File and script index
 
 ### Trainers
@@ -299,7 +310,7 @@ Every CLI tool in this package supports `--help` for full options.
 | File | Purpose |
 |------|---------|
 | [`train_videomae.py`](./train_videomae.py) | VideoMAE / SimMIM-hybrid masked-autoencoder SSL trainer. Tube masking, learnable mask token, lightweight transposed-conv decoder, BF16 + DDP, JSON + W&B-offline logging, full resume support. |
-| [`train_supervised.py`](./train_supervised.py) | End-to-end supervised baseline: same encoder + linear head, MSE on z-scored (alpha, zeta) labels. |
+| [`train_supervised.py`](./train_supervised.py) | End-to-end supervised baseline: same encoder + linear head, MSE on z-scored (alpha, zeta) labels. JSON + W&B-offline logging (same `--wandb-mode` flags), full resume support. |
 
 ### Evaluation
 
